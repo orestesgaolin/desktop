@@ -10,6 +10,7 @@ import 'scene_fox.dart';
 import 'scene_playground.dart';
 import 'scratch.dart';
 import 'triangle.dart';
+import 'widget_fx.dart';
 import 'widget_stage.dart';
 
 List<GpuDemo> buildDemos() {
@@ -23,6 +24,7 @@ List<GpuDemo> buildDemos() {
     _plasma(),
     _mandelbrot(),
     WidgetStageDemo(),
+    WidgetFxDemo(),
     ScenePlaygroundDemo(),
     SceneFoxDemo(),
     buildScratchDemo(),

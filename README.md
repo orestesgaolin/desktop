@@ -108,6 +108,26 @@ and cached with fallbacks (`stableColorFormat`), the app opts out of wide
 gamut (`FLTEnableWideGamut=false`), and the capture path falls back to a
 CPU pixel copy when `fromImage` cannot wrap the snapshot.
 
+## Widget FX — GpuShaderBox / GpuShaderSampler
+
+`lib/src/gpu_widgets.dart` is the Flutter GPU equivalent of
+flutter_shaders' `ShaderBuilder`/`AnimatedSampler`, built by combining
+this app's runtime shader compiler with flutter_scene's exported
+`WidgetTexture` capture pipeline:
+
+- `GpuShaderBox` renders a runtime-compiled fragment shader in an
+  ordinary widget box (inline GLSL string or asset, `FragInfo` contract).
+- `GpuShaderSampler` applies a fragment shader **over a live child
+  widget**: the child is hosted invisibly and captured zero-copy into a
+  `gpu.Texture` (bound as `uniform sampler2D u_child`), and pointer input
+  is forwarded through `WidgetTextureController` in UV space, so buttons,
+  switches, and sliders keep working under the effect. Child state
+  survives switching effects.
+
+The Widget FX tile demonstrates it: a real card behind selectable
+ripple / halftone / frost effects, all compiled at runtime from inline
+GLSL, interactive throughout.
+
 ## Design language
 
 The gallery uses a quiet Scandinavian palette throughout — warm paper
