@@ -26,6 +26,13 @@ Toolbar: play/pause, time scale, and render-scale (50/75/100 % of native
 resolution). The stats readout shows live fps and the surface size in
 physical pixels.
 
+The frame loop is vsync-driven (a `Ticker` per frame), so the app runs at
+whatever the display delivers — verified at **120 fps** on a MacBook Pro
+ProMotion panel (all demos, including the raymarchers at full 2x retina)
+and 60 fps on a 60 Hz external display. Launch with
+`GPU_PLAYGROUND_PROMOTION=1` to open the window on the highest-refresh
+screen automatically, or just drag it there.
+
 ## Requirements
 
 - Flutter **master** channel (Flutter GPU is not available on stable).
