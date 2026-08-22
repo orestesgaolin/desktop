@@ -3,12 +3,12 @@ import 'package:flutter/services.dart';
 
 import 'demos/demo.dart';
 
-const _panelBg = Color(0xFF0D1017);
-const _editorBg = Color(0xFF0A0D13);
-const _dim = Color(0xFF8A93A6);
-const _accent = Color(0xFF22D3EE);
-const _errorRed = Color(0xFFF87171);
-const _okGreen = Color(0xFF4ADE80);
+const _panelBg = Color(0xFFF5F3EE);
+const _editorBg = Color(0xFFFBFAF6);
+const _dim = Color(0xFF8B8578);
+const _accent = Color(0xFF4F6F6A);
+const _errorRed = Color(0xFFA6543E);
+const _okGreen = Color(0xFF5F7F5A);
 
 /// GLSL editor for any demo's shader documents: one tab per stage, a Run
 /// button (cmd+enter) that recompiles through impellerc and hot-swaps the
@@ -117,7 +117,7 @@ class _ShaderEditorPanelState extends State<ShaderEditorPanel> {
         decoration: BoxDecoration(
           color: _panelBg,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          border: Border.all(color: const Color(0x1A2C2E31)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -155,7 +155,7 @@ class _ShaderEditorPanelState extends State<ShaderEditorPanel> {
                     onPressed: _compiling ? null : _run,
                     style: FilledButton.styleFrom(
                       backgroundColor: _accent,
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                       visualDensity: VisualDensity.compact,
                       textStyle: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w700),
@@ -165,7 +165,7 @@ class _ShaderEditorPanelState extends State<ShaderEditorPanel> {
                             width: 12,
                             height: 12,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.black54),
+                                strokeWidth: 2, color: Colors.white70),
                           )
                         : const Icon(Icons.play_arrow_rounded, size: 16),
                     label: const Text('Run  ⌘⏎'),
@@ -192,7 +192,7 @@ class _ShaderEditorPanelState extends State<ShaderEditorPanel> {
                     fontFamilyFallback: ['Courier New', 'monospace'],
                     fontSize: 12,
                     height: 1.45,
-                    color: Color(0xFFD7DEE8),
+                    color: Color(0xFF2C2E31),
                   ),
                   cursorColor: _accent,
                   decoration: const InputDecoration(
@@ -207,7 +207,7 @@ class _ShaderEditorPanelState extends State<ShaderEditorPanel> {
                 constraints: const BoxConstraints(maxHeight: 160),
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A0E12),
+                  color: const Color(0xFFF3E7E1),
                   borderRadius:
                       const BorderRadius.vertical(bottom: Radius.circular(13)),
                   border: Border(
@@ -254,12 +254,12 @@ class _TabChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? _editorBg : Colors.transparent,
+          color: selected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: selected
-                ? _accent.withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.08),
+                ? _accent.withValues(alpha: 0.6)
+                : const Color(0x212C2E31),
           ),
         ),
         child: Text(

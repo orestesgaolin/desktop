@@ -9,10 +9,10 @@ import 'package:flutter_gpu/gpu.dart' as gpu;
 
 import 'demos/widget_stage.dart';
 
-const _panelBg = Color(0xFF0D1017);
-const _cardBg = Color(0xFF161B26);
-const _dim = Color(0xFF8A93A6);
-const _accent = Color(0xFF22D3EE);
+const _panelBg = Color(0xFFF5F3EE);
+const _cardBg = Color(0xFFFDFCFA);
+const _dim = Color(0xFF8B8578);
+const _accent = Color(0xFF4F6F6A);
 
 /// The real, interactive widgets that feed the Widget Stage demo.
 ///
@@ -145,14 +145,14 @@ class _WidgetSourcePanelState extends State<WidgetSourcePanel>
 
   @override
   Widget build(BuildContext context) {
-    final accent = HSLColor.fromAHSL(1, _hue, 0.8, 0.62).toColor();
+    final accent = HSLColor.fromAHSL(1, _hue, 0.45, 0.42).toColor();
     return Container(
       width: widget.width,
       margin: widget.margin,
       decoration: BoxDecoration(
         color: _panelBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: const Color(0x1A2C2E31)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -206,7 +206,7 @@ class _WidgetSourcePanelState extends State<WidgetSourcePanel>
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: const Color(0x212C2E31)),
       ),
       padding: const EdgeInsets.all(14),
       child: child,
@@ -222,13 +222,13 @@ class _WidgetSourcePanelState extends State<WidgetSourcePanel>
             height: 54,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                  colors: [Color(0xFF22D3EE), Color(0xFFA78BFA)],
+                  colors: [Color(0xFF4F6F6A), Color(0xFFC6947A)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.music_note,
-                color: Colors.black87, size: 28),
+                color: Colors.white, size: 28),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -249,7 +249,7 @@ class _WidgetSourcePanelState extends State<WidgetSourcePanel>
                     child: LinearProgressIndicator(
                       value: _progress.value,
                       minHeight: 5,
-                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      backgroundColor: const Color(0x142C2E31),
                       color: _accent,
                     ),
                   ),
@@ -268,7 +268,7 @@ class _WidgetSourcePanelState extends State<WidgetSourcePanel>
         children: [
           const CircleAvatar(
             radius: 26,
-            backgroundColor: Color(0xFF2A3242),
+            backgroundColor: Color(0xFFE6E2D9),
             child: Text('DK',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ),
@@ -289,8 +289,8 @@ class _WidgetSourcePanelState extends State<WidgetSourcePanel>
             onPressed: () => setState(() => _following = !_following),
             style: FilledButton.styleFrom(
               backgroundColor:
-                  _following ? const Color(0xFF2A3242) : _accent,
-              foregroundColor: _following ? Colors.white : Colors.black,
+                  _following ? const Color(0xFFE6E2D9) : _accent,
+              foregroundColor: _following ? const Color(0xFF2C2E31) : Colors.white,
               visualDensity: VisualDensity.compact,
               textStyle:
                   const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),

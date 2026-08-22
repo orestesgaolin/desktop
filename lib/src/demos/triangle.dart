@@ -55,12 +55,12 @@ class TriangleDemo extends GpuDemo {
       ]),
     );
 
-    // x, y, r, g, b
+    // x, y, r, g, b — dusty blue, sage, clay.
     _vertices = gpu.gpuContext.createDeviceBufferWithCopy(
       Float32List.fromList(<double>[
-        0.00, 0.66, 1.00, 0.25, 0.35, //
-        -0.57, -0.33, 0.25, 1.00, 0.50, //
-        0.57, -0.33, 0.30, 0.45, 1.00, //
+        0.00, 0.66, 0.42, 0.53, 0.62, //
+        -0.57, -0.33, 0.56, 0.63, 0.53, //
+        0.57, -0.33, 0.76, 0.58, 0.46, //
       ]).buffer.asByteData(),
     );
 
@@ -74,7 +74,7 @@ class TriangleDemo extends GpuDemo {
     final pass = commandBuffer.createRenderPass(gpu.RenderTarget.singleColor(
       gpu.ColorAttachment(
         texture: target,
-        clearValue: vm.Vector4(0.043, 0.047, 0.066, 1.0),
+        clearValue: vm.Vector4(0.937, 0.925, 0.902, 1.0),
       ),
     ));
 

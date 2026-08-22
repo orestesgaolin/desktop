@@ -151,7 +151,7 @@ class WidgetStageDemo extends GpuDemo {
     _target += frame.dt * 0.10; // gentle idle spin
     _theta += (_target - _theta) * math.min(1, frame.dt * 7);
 
-    final clear = vm.Vector4(0.016, 0.020, 0.032, 1.0);
+    final clear = vm.Vector4(0.914, 0.902, 0.878, 1.0);
     final colorAttachment = _msaa
         ? gpu.ColorAttachment(
             texture: _msaaColor!,

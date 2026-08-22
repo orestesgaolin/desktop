@@ -24,10 +24,10 @@ const float BAILOUT_SQ = 65536.0;     // BAILOUT * BAILOUT
 // Tuned for a deep-space look: dark blues/violets in the slow-escape halo,
 // warm gold/orange on the fast-escaping filaments near the boundary.
 vec3 palette(float t) {
-  vec3 a = vec3(0.34, 0.26, 0.44);
-  vec3 b = vec3(0.42, 0.36, 0.46);
+  vec3 a = vec3(0.60, 0.58, 0.54);
+  vec3 b = vec3(0.28, 0.26, 0.24);
   vec3 c = vec3(1.00, 0.94, 0.78);
-  vec3 d = vec3(0.08, 0.52, 0.86);
+  vec3 d = vec3(0.04, 0.12, 0.24);
   return a + b * cos(TAU * (c * t + d));
 }
 
@@ -63,8 +63,8 @@ void main() {
 
   vec3 col;
   if (!escaped) {
-    // Interior: near-black with a faint blue tint.
-    col = vec3(0.008, 0.011, 0.026);
+    // Interior: deep ink.
+    col = vec3(0.085, 0.092, 0.102);
   } else {
     // Continuous (smooth) iteration count -> no banding between bands.
     float sn = iter - log2(log2(max(m2, 1.0001))) + 4.0;
@@ -76,17 +76,17 @@ void main() {
     // Warm the very tightly-bound filaments, darken the fast escapes so the
     // exterior falls off into deep space.
     float boundary = clamp(sn / 90.0, 0.0, 1.0);
-    col = mix(col * vec3(1.35, 0.95, 0.45), col, boundary);
-    col *= mix(0.22, 1.0, pow(clamp(sn / 22.0, 0.0, 1.0), 0.65));
+    col = mix(col * vec3(1.16, 1.04, 0.88), col, boundary);
+    col *= mix(0.34, 1.0, pow(clamp(sn / 22.0, 0.0, 1.0), 0.65));
 
-    // Slight glow tied to the escape radius for a soft, plasma-like edge.
+    // Slight lift tied to the escape radius for a soft edge.
     float glow = clamp(log2(log2(max(m2, 1.0001))) * 0.5, 0.0, 1.0);
-    col += vec3(0.05, 0.03, 0.10) * (1.0 - glow);
+    col += vec3(0.05, 0.045, 0.04) * (1.0 - glow);
   }
 
   // Gentle vignette.
   vec2 vc = v_uv - 0.5;
-  col *= 1.0 - 0.30 * dot(vc, vc) * 2.4;
+  col *= 1.0 - 0.12 * dot(vc, vc) * 2.4;
 
   // Sub-LSB dither kills residual 8-bit banding in the smooth gradients.
   float dither = (hash21(gl_FragCoord.xy) - 0.5) / 255.0;

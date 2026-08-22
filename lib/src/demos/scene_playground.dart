@@ -12,9 +12,9 @@ import 'demo.dart';
 /// shadow-casting sun, screen-space reflections, and bloom.
 class ScenePlaygroundDemo extends WidgetHostedDemo {
   @override
-  String get name => 'Scene: PBR Studio';
+  String get name => 'Scene: Still Life';
   @override
-  String get subtitle => 'flutter_scene — shadows, SSR, bloom';
+  String get subtitle => 'flutter_scene — soft PBR, shadows';
   @override
   String get hint => 'drag to orbit · scroll to dolly';
   @override
@@ -75,56 +75,47 @@ class _PlaygroundViewState extends State<_PlaygroundView> {
   static const bool _captureFriendly = false;
 
   void _buildScene() {
-    // "showcase" look preset from the flutter_scene-looks skill.
+    // "clean" look preset from the flutter_scene-looks skill: neutral tone
+    // mapping and gentle grounding occlusion, nothing else.
     scene.environmentSettings = EnvironmentSettings(
-      toneMapping: ToneMappingMode.aces,
+      toneMapping: ToneMappingMode.pbrNeutral,
       exposure: 1.0,
-      bloomEnabled: true,
-      bloomThreshold: 1.1,
-      bloomIntensity: 0.2,
-      bloomScatter: 0.7,
       ambientOcclusionEnabled: !_captureFriendly,
-      ambientOcclusionMethod: AmbientOcclusionMethod.groundTruth,
-      ambientOcclusionBentNormals: true,
-      ambientOcclusionSpecularMode: SpecularAmbientOcclusionMode.bentCone,
-      ambientOcclusionIntensity: 1.0,
-      screenSpaceReflectionsEnabled: !_captureFriendly,
-      screenSpaceReflectionsIntensity: 1.0,
-      vignetteEnabled: true,
-      vignetteIntensity: 0.25,
+      ambientOcclusionIntensity: 0.8,
+      ambientOcclusionHalfResolution: true,
     );
     scene.directionalLight = DirectionalLight(
       direction: vm.Vector3(-0.4, -1.0, -0.3),
-      intensity: 4.0,
+      intensity: 3.0,
       castsShadow: true,
     );
 
-    // Gradient sky fills the horizon and feeds the reflections.
+    // Soft daylight sky.
     scene.skybox = Skybox(GradientSkySource(
-      zenithColor: vm.Vector3(0.02, 0.03, 0.06),
-      horizonColor: vm.Vector3(0.10, 0.12, 0.20),
-      groundColor: vm.Vector3(0.02, 0.02, 0.03),
+      zenithColor: vm.Vector3(0.58, 0.63, 0.68),
+      horizonColor: vm.Vector3(0.85, 0.83, 0.79),
+      groundColor: vm.Vector3(0.46, 0.45, 0.43),
     ));
 
-    // Glossy dark floor for the screen-space reflections.
+    // Matte linen floor.
     scene.add(Node(
       mesh: Mesh(
         PlaneGeometry(width: 24, depth: 24),
         PhysicallyBasedMaterial()
-          ..baseColorFactor = vm.Vector4(0.04, 0.045, 0.06, 1)
-          ..metallicFactor = 0.55
-          ..roughnessFactor = 0.30,
+          ..baseColorFactor = vm.Vector4(0.80, 0.78, 0.73, 1)
+          ..metallicFactor = 0.0
+          ..roughnessFactor = 0.85,
       ),
     ));
 
-    // Centerpiece: a gold torus with a glass icosphere floating inside.
+    // Centerpiece: a matte ceramic torus with a glass icosphere inside.
     _torus = Node(
       mesh: Mesh(
         TorusGeometry(radius: 1.0, tubeRadius: 0.3, tubularSegments: 48),
         PhysicallyBasedMaterial()
-          ..baseColorFactor = vm.Vector4(1.0, 0.75, 0.3, 1)
-          ..metallicFactor = 1.0
-          ..roughnessFactor = 0.18,
+          ..baseColorFactor = vm.Vector4(0.90, 0.88, 0.84, 1)
+          ..metallicFactor = 0.0
+          ..roughnessFactor = 0.5,
       ),
     )..position = vm.Vector3(0, 1.4, 0);
     scene.add(_torus!);
@@ -141,20 +132,20 @@ class _PlaygroundViewState extends State<_PlaygroundView> {
       ),
     )..position = vm.Vector3(0, 1.4, 0));
 
-    // A ring of orbiting satellites with varied materials.
+    // A ring of orbiting satellites in quiet stoneware tones.
     scene.add(_rig);
     final palette = [
-      vm.Vector4(0.9, 0.2, 0.3, 1),
-      vm.Vector4(0.2, 0.8, 0.9, 1),
-      vm.Vector4(0.65, 0.4, 1.0, 1),
-      vm.Vector4(0.3, 0.9, 0.4, 1),
+      vm.Vector4(0.76, 0.58, 0.46, 1), // clay
+      vm.Vector4(0.47, 0.58, 0.68, 1), // dusty blue
+      vm.Vector4(0.58, 0.66, 0.54, 1), // sage
+      vm.Vector4(0.85, 0.78, 0.64, 1), // sand
     ];
     for (var i = 0; i < 4; i++) {
       final material = PhysicallyBasedMaterial()
         ..baseColorFactor = palette[i]
-        ..metallicFactor = i.isEven ? 0.0 : 1.0
-        ..roughnessFactor = 0.15 + 0.2 * i
-        ..clearcoat = i.isEven ? 1.0 : 0.0;
+        ..metallicFactor = 0.0
+        ..roughnessFactor = 0.45 + 0.12 * i
+        ..clearcoat = i.isEven ? 0.4 : 0.0;
       final node = Node(
         mesh: Mesh(
           i % 2 == 0
@@ -167,19 +158,20 @@ class _PlaygroundViewState extends State<_PlaygroundView> {
       _rig.add(node);
     }
 
-    // Emissive pillars that feed the bloom pass.
+    // Paper-lantern columns: warm, softly self-lit.
     for (var i = 0; i < 3; i++) {
       final angle = i * 2 * math.pi / 3 + 0.5;
       final pillar = Node(
         mesh: Mesh(
-          CylinderGeometry(bottomRadius: 0.06, topRadius: 0.06, height: 2.4),
+          CylinderGeometry(bottomRadius: 0.10, topRadius: 0.10, height: 2.2),
           PhysicallyBasedMaterial()
-            ..baseColorFactor = vm.Vector4(0.02, 0.02, 0.03, 1)
-            ..emissiveFactor = vm.Vector4(0.15, 0.85, 1.0, 1)
-            ..emissiveStrength = 2.0,
+            ..baseColorFactor = vm.Vector4(0.90, 0.86, 0.78, 1)
+            ..roughnessFactor = 0.9
+            ..emissiveFactor = vm.Vector4(1.0, 0.90, 0.74, 1)
+            ..emissiveStrength = 0.45,
         ),
       )..position =
-          vm.Vector3(math.cos(angle) * 4.2, 1.3, math.sin(angle) * 4.2);
+          vm.Vector3(math.cos(angle) * 4.2, 1.1, math.sin(angle) * 4.2);
       _pillars.add(pillar);
       scene.add(pillar);
     }
@@ -288,15 +280,15 @@ class _SceneControlCardState extends State<_SceneControlCard> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = Color(0xFF22D3EE);
+    const accent = Color(0xFF4F6F6A);
     return Material(
-      color: const Color(0xEE131824),
+      color: const Color(0xF5FBFAF6),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: accent.withValues(alpha: 0.5)),
+          border: Border.all(color: const Color(0x33262A2E)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,9 +302,11 @@ class _SceneControlCardState extends State<_SceneControlCard> {
             Row(
               children: [
                 const Expanded(
-                    child: Text('Pillars',
+                    child: Text('Lanterns',
                         style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600))),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2C2E31)))),
                 Switch(
                   value: _pillars,
                   activeThumbColor: accent,
@@ -326,8 +320,10 @@ class _SceneControlCardState extends State<_SceneControlCard> {
             Row(
               children: [
                 const Text('Spin',
-                    style:
-                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2C2E31))),
                 Expanded(
                   child: Slider(
                     value: _spin,

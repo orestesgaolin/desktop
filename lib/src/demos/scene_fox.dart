@@ -82,24 +82,20 @@ class _FoxViewState extends State<_FoxView> {
           ..play();
       }
 
-      // "stylized" look preset from the flutter_scene-looks skill.
+      // Quiet, neutral grade with a whisper of warmth.
       scene.environmentSettings = EnvironmentSettings(
-        toneMapping: ToneMappingMode.aces,
+        toneMapping: ToneMappingMode.pbrNeutral,
+        exposure: 1.0,
         colorGradingEnabled: true,
-        saturation: 1.25,
-        contrast: 1.1,
-        brightness: 1.05,
-        temperature: 0.1,
-        bloomEnabled: true,
-        bloomThreshold: 0.9,
-        bloomIntensity: 0.28,
-        bloomScatter: 0.8,
-        vignetteEnabled: true,
-        vignetteIntensity: 0.2,
+        saturation: 1.05,
+        temperature: 0.04,
+        ambientOcclusionEnabled: true,
+        ambientOcclusionIntensity: 0.8,
+        ambientOcclusionHalfResolution: true,
       );
       scene.directionalLight = DirectionalLight(
         direction: vm.Vector3(-0.5, -1.0, -0.35),
-        intensity: 3.5,
+        intensity: 3.0,
         castsShadow: true,
       );
 
@@ -107,7 +103,7 @@ class _FoxViewState extends State<_FoxView> {
         mesh: Mesh(
           DiscGeometry(radius: 3.2, segments: 64),
           PhysicallyBasedMaterial()
-            ..baseColorFactor = vm.Vector4(0.16, 0.2, 0.16, 1)
+            ..baseColorFactor = vm.Vector4(0.84, 0.79, 0.70, 1)
             ..metallicFactor = 0.0
             ..roughnessFactor = 0.9,
         ),

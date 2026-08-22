@@ -11,11 +11,11 @@ out vec3 v_color;
 out vec2 v_pos;
 
 void main() {
-  float a = vinfo.time * 0.5;
+  float a = vinfo.time * 0.22;
   float c = cos(a);
   float s = sin(a);
   vec2 p = mat2(c, -s, s, c) * position;
-  p *= 0.9 + 0.08 * sin(vinfo.time * 1.7);
+  p *= 0.92 + 0.035 * sin(vinfo.time * 0.9);
   p.x /= vinfo.aspect;
   gl_Position = vec4(p, 0.0, 1.0);
   v_color = color;

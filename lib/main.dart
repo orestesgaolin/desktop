@@ -19,12 +19,13 @@ void main() {
   runApp(const GpuPlaygroundApp());
 }
 
-const _bg = Color(0xFF0A0C11);
-const _panel = Color(0xFF10131B);
-const _panelHi = Color(0xFF1A1F2C);
-const _accent = Color(0xFF22D3EE);
-const _accent2 = Color(0xFFA78BFA);
-const _textDim = Color(0xFF8A93A6);
+const _bg = Color(0xFFEFECE6);
+const _panel = Color(0xFFF5F3EE);
+const _panelHi = Color(0xFFE8E4DB);
+const _accent = Color(0xFF4F6F6A); // spruce
+const _accent2 = Color(0xFFC6947A); // clay
+const _textDim = Color(0xFF8B8578);
+const _ink = Color(0xFF2C2E31);
 
 class GpuPlaygroundApp extends StatelessWidget {
   const GpuPlaygroundApp({super.key});
@@ -36,11 +37,11 @@ class GpuPlaygroundApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.dark,
+        brightness: Brightness.light,
         scaffoldBackgroundColor: _bg,
         colorScheme: ColorScheme.fromSeed(
           seedColor: _accent,
-          brightness: Brightness.dark,
+          brightness: Brightness.light,
           surface: _panel,
         ),
         sliderTheme: const SliderThemeData(
@@ -177,7 +178,7 @@ class _HomeShellState extends State<HomeShell> {
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                const ColoredBox(color: Colors.black),
+                                const ColoredBox(color: Color(0xFFE9E6E0)),
                                 if (demo is WidgetHostedDemo)
                                   demo.buildView(context, _playback)
                                 else
@@ -296,7 +297,7 @@ class _Sidebar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.memory,
-                      size: 20, color: Colors.black87),
+                      size: 20, color: Colors.white),
                 ),
                 const SizedBox(width: 12),
                 const Column(
@@ -519,12 +520,11 @@ class _HintChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
+        color: _ink.withValues(alpha: 0.62),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Text(text,
-          style: const TextStyle(fontSize: 11, color: Colors.white70)),
+          style: const TextStyle(fontSize: 11, color: Color(0xFFF2F0EA))),
     );
   }
 }

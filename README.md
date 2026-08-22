@@ -12,15 +12,15 @@ impellerc-compiled GLSL — no Canvas, no CustomPaint drawing, no
 | Demo | What it shows |
 | --- | --- |
 | Hello Triangle | Minimal pipeline: one vertex buffer, two shaders, animated on the GPU |
-| Neon Cube | Indexed draw, depth buffer, back-face culling, 4x MSAA resolve |
+| Ceramic Cube | Indexed draw, depth buffer, back-face culling, 4x MSAA resolve |
 | Galaxy Particles | 40k instanced billboards (`VertexStepMode.instance`), additive blending |
 | SDF Raymarch | Fullscreen raymarcher: smooth-min morphs, soft shadows, AO, fog |
-| Golden Hour Ocean | Raymarched wave heightfield with fresnel, sun glitter, foam |
+| Nordic Sea | Raymarched wave heightfield with fresnel, sun glitter, foam |
 | Metaballs | Analytic 2D iso-surface with gradient shading (one ball follows the pointer) |
 | Plasma | Domain-warped oldschool plasma with cosine palettes |
 | Mandelbrot | Smooth escape-time fractal; drag to pan, scroll for anchored zoom |
 | Widget Stage | Real, live Flutter widgets captured as GPU textures and spun on a 3D carousel |
-| Scene: PBR Studio | [flutter_scene](https://pub.dev/packages/flutter_scene): scene graph, PBR + IBL, shadow-casting sun, SSR, bloom, orbit camera |
+| Scene: Still Life | [flutter_scene](https://pub.dev/packages/flutter_scene): scene graph, soft PBR + IBL, shadow-casting sun, orbit camera |
 | Scene: Animated Fox | flutter_scene glTF asset pipeline + blended skeletal animation (Khronos sample Fox) |
 | Live Editor | ShaderToy-style: type GLSL, ⌘⏎ compiles it at runtime and hot-swaps the pipeline |
 
@@ -108,6 +108,12 @@ and cached with fallbacks (`stableColorFormat`), the app opts out of wide
 gamut (`FLTEnableWideGamut=false`), and the capture path falls back to a
 CPU pixel copy when `fromImage` cannot wrap the snapshot.
 
+## Design language
+
+The gallery uses a quiet Scandinavian palette throughout — warm paper
+(#EFECE6), ink (#2C2E31), spruce (#4F6F6A), and stoneware tones (clay,
+sage, dusty blue, sand) — in both the app chrome and the demo content.
+
 ## flutter_scene demos
 
 The two "Scene:" tiles use [flutter_scene](https://pub.dev/packages/flutter_scene),
@@ -121,7 +127,7 @@ time by the `hook/build.dart` the init command wrote. Fox model: Khronos
 glTF sample, model by PixelMannen (CC0), rig/animation by @tomkranis
 (CC-BY 4.0).
 
-The PBR Studio also demonstrates `WidgetComponent`: a real, interactive
+The Still Life also demonstrates `WidgetComponent`: a real, interactive
 Flutter widget (the floating "Scene Controls" card) lives on a billboard
 quad inside the 3D scene — `SceneView` hosts the subtree invisibly,
 re-captures it every frame, and raycasts pointer input onto the surface,

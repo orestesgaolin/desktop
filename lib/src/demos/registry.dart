@@ -52,7 +52,7 @@ FullscreenDemo _ocean() {
   var yaw = 0.0;
   var pitch = 0.0;
   return FullscreenDemo(
-    name: 'Golden Hour Ocean',
+    name: 'Nordic Sea',
     subtitle: 'Raymarched wave heightfield',
     hint: 'drag to look around',
     icon: Icons.waves,
@@ -81,7 +81,7 @@ FullscreenDemo _metaballs() {
 FullscreenDemo _plasma() {
   return FullscreenDemo(
     name: 'Plasma',
-    subtitle: 'Oldschool demoscene, domain-warped',
+    subtitle: 'Domain-warped colour field',
     hint: 'pointer stirs the field',
     icon: Icons.waves_outlined,
     shaderName: 'PlasmaFragment',

@@ -13,7 +13,7 @@ import 'demo.dart';
 /// procedural surface. Drag to take over the rotation.
 class CubeDemo extends GpuDemo {
   @override
-  String get name => 'Neon Cube';
+  String get name => 'Ceramic Cube';
   @override
   String get subtitle => 'Depth buffer, culling, 4x MSAA';
   @override
@@ -141,7 +141,7 @@ class CubeDemo extends GpuDemo {
     _yawExtra += frame.dragDelta.dx * 0.010;
     _pitchExtra += frame.dragDelta.dy * 0.010;
 
-    final clear = vm.Vector4(0.031, 0.035, 0.055, 1.0);
+    final clear = vm.Vector4(0.906, 0.894, 0.867, 1.0);
     final colorAttachment = _msaa
         ? gpu.ColorAttachment(
             texture: _msaaColor!,

@@ -13,12 +13,13 @@ in vec2 v_uv;
 
 out vec4 frag_color;
 
-// Cosine palette (Inigo Quilez style).
+// Cosine palette (Inigo Quilez style), kept muted: soft flows between
+// paper, dusty blue, sage, and pale clay.
 vec3 palette(float t) {
-  vec3 a = vec3(0.52, 0.45, 0.61);
-  vec3 b = vec3(0.40, 0.42, 0.31);
+  vec3 a = vec3(0.74, 0.72, 0.68);
+  vec3 b = vec3(0.16, 0.14, 0.13);
   vec3 c = vec3(1.00, 1.00, 1.00);
-  vec3 d = vec3(0.00, 0.33, 0.67);
+  vec3 d = vec3(0.02, 0.14, 0.28);
   return a + b * cos(6.2831853 * (c * t + d));
 }
 
@@ -46,9 +47,9 @@ void main() {
   float dm = length(p - m);
   v += 0.35 * sin(dm * 4.0 - t * 4.0) * exp(-dm * 0.7);
 
-  vec3 col = palette(v * 0.9 + t * 0.05);
+  vec3 col = palette(v * 0.55 + t * 0.03);
   // Gentle vignette.
-  float vig = 1.0 - 0.35 * dot(v_uv - 0.5, v_uv - 0.5) * 2.4;
+  float vig = 1.0 - 0.12 * dot(v_uv - 0.5, v_uv - 0.5) * 2.4;
   col *= vig;
 
   frag_color = vec4(col, 1.0);

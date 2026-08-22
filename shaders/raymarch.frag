@@ -93,15 +93,16 @@ float calc_ao(vec3 p, vec3 n) {
 
 vec3 sky(vec3 rd, vec3 sun) {
   float horizon = pow(1.0 - max(rd.y, 0.0), 3.0);
-  vec3 col = mix(vec3(0.06, 0.09, 0.16), vec3(0.30, 0.22, 0.28), horizon);
+  vec3 col = mix(vec3(0.58, 0.63, 0.68), vec3(0.84, 0.82, 0.78), horizon);
   float s = max(dot(rd, sun), 0.0);
-  col += vec3(1.0, 0.72, 0.45) * (pow(s, 24.0) * 0.5 + pow(s, 200.0) * 1.6);
+  col += vec3(1.0, 0.95, 0.85) * (pow(s, 24.0) * 0.10 + pow(s, 200.0) * 0.45);
   return col;
 }
 
+// Porcelain: a slow, subtle drift between warm white and pale grey-blue.
 vec3 palette(float t) {
-  return vec3(0.45, 0.42, 0.55) +
-         vec3(0.45, 0.45, 0.40) * cos(6.2831853 * (vec3(1.0) * t + vec3(0.00, 0.15, 0.35)));
+  return mix(vec3(0.90, 0.88, 0.84), vec3(0.70, 0.74, 0.77),
+             0.5 + 0.5 * sin(6.2831853 * t));
 }
 
 void main() {
@@ -142,11 +143,11 @@ void main() {
     float gloss;
     if (is_floor) {
       float checker = mod(floor(p.x * 1.2) + floor(p.z * 1.2), 2.0);
-      albedo = mix(vec3(0.045, 0.05, 0.07), vec3(0.10, 0.11, 0.14), checker);
-      gloss = 0.18;
+      albedo = mix(vec3(0.62, 0.59, 0.54), vec3(0.72, 0.69, 0.63), checker);
+      gloss = 0.08;
     } else {
-      albedo = palette(p.y * 0.35 + u.time * 0.05);
-      gloss = 0.55;
+      albedo = palette(p.y * 0.10 + u.time * 0.015);
+      gloss = 0.30;
     }
 
     float sha = soft_shadow(p + n * 0.01, sun, 10.0);
@@ -159,19 +160,19 @@ void main() {
     vec3 refl = reflect(rd, n);
     float fres = pow(1.0 - max(dot(n, -rd), 0.0), 4.0);
 
-    col = albedo * (vec3(1.05, 0.95, 0.82) * diff * sha * 1.6 +
-                    vec3(0.18, 0.24, 0.38) * sky_amb * ao);
-    col += sky(refl, sun) * fres * gloss * ao * 1.4;
-    col += vec3(1.0, 0.9, 0.75) * spec * sha * gloss * 2.0;
+    col = albedo * (vec3(1.02, 0.99, 0.93) * diff * sha * 0.85 +
+                    vec3(0.52, 0.55, 0.58) * sky_amb * ao);
+    col += sky(refl, sun) * fres * gloss * ao * 0.8;
+    col += vec3(1.0, 0.97, 0.90) * spec * sha * gloss * 0.9;
 
     // Distance fog toward the horizon color.
     float fog = 1.0 - exp(-0.0022 * t * t);
-    col = mix(col, vec3(0.10, 0.11, 0.17), fog);
+    col = mix(col, vec3(0.80, 0.79, 0.76), fog);
   }
 
-  // Filmic-ish tone curve + gamma lift.
-  col = col / (1.0 + col * 0.6);
-  col = pow(max(col, 0.0), vec3(0.85));
+  // Gentle rolloff.
+  col = col / (1.0 + col * 0.25);
+  col = pow(max(col, 0.0), vec3(0.92));
 
   frag_color = vec4(col, 1.0);
 }

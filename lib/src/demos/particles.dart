@@ -95,7 +95,7 @@ class ParticlesDemo extends GpuDemo {
     final pass = commandBuffer.createRenderPass(gpu.RenderTarget.singleColor(
       gpu.ColorAttachment(
         texture: target,
-        clearValue: vm.Vector4(0.008, 0.010, 0.022, 1.0),
+        clearValue: vm.Vector4(0.016, 0.020, 0.030, 1.0),
       ),
     ));
 

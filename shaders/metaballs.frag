@@ -23,19 +23,19 @@ out vec4 frag_color;
 const float TAU = 6.28318530718;
 const float EPS = 1.0e-5;
 
-// Electric ramp: deep teal -> cyan -> violet -> hot magenta -> white core.
+// Quiet stoneware ramp: dusty blue -> sage -> clay -> warm sand core.
 // t is a compressed measure of how deep inside the blob we are (0 edge, 1 core).
 vec3 gelPalette(float t) {
   t = clamp(t, 0.0, 1.0);
-  vec3 teal    = vec3(0.020, 0.310, 0.400);
-  vec3 cyan    = vec3(0.110, 0.780, 0.880);
-  vec3 violet  = vec3(0.420, 0.320, 0.960);
-  vec3 magenta = vec3(0.980, 0.360, 0.820);
-  vec3 core    = vec3(1.000, 0.880, 0.980);
+  vec3 blue = vec3(0.420, 0.520, 0.600);
+  vec3 sage = vec3(0.560, 0.630, 0.530);
+  vec3 clay = vec3(0.760, 0.580, 0.460);
+  vec3 sand = vec3(0.870, 0.810, 0.700);
+  vec3 core = vec3(0.930, 0.890, 0.810);
 
-  vec3 c = mix(teal, cyan, smoothstep(0.00, 0.34, t));
-  c = mix(c, violet, smoothstep(0.28, 0.62, t));
-  c = mix(c, magenta, smoothstep(0.58, 0.86, t));
+  vec3 c = mix(blue, sage, smoothstep(0.00, 0.34, t));
+  c = mix(c, clay, smoothstep(0.28, 0.62, t));
+  c = mix(c, sand, smoothstep(0.58, 0.86, t));
   c = mix(c, core, smoothstep(0.88, 1.00, t));
   return c;
 }
@@ -136,40 +136,37 @@ void main() {
   float rim = pow(1.0 - clamp(n.z, 0.0, 1.0), 2.6);
 
   vec3 gel = gelPalette(depth);
-  vec3 inside = gel * (0.46 + 0.62 * ndl);
-  inside += gel * sheen;
-  inside += vec3(0.90, 0.97, 1.00) * spec * 0.95;
-  inside += mix(vec3(0.10, 0.85, 0.95), vec3(0.85, 0.35, 1.00), depth) * rim * 0.40;
-  // Subsurface lift so thick regions read as translucent gel.
-  inside += gel * depth * 0.22;
+  vec3 inside = gel * (0.72 + 0.32 * ndl);
+  inside += gel * sheen * 0.5;
+  inside += vec3(1.00, 0.99, 0.96) * spec * 0.20;
+  inside += vec3(0.95, 0.93, 0.88) * rim * 0.10;
+  // Gentle lift so thick regions read as soft matte volume.
+  inside += gel * depth * 0.10;
 
-  // ---- background -------------------------------------------------------
-  vec3 bg = vec3(0.0392, 0.0471, 0.0706);
+  // ---- background: warm paper with a soft contact shadow ----------------
+  vec3 bg = vec3(0.937, 0.925, 0.902);
 
-  // Barely visible hex lattice.
+  // Barely visible dot lattice, slightly darker than the paper.
   float dots = hexDots(p * 30.0);
-  bg += vec3(0.055, 0.085, 0.130) * dots * 0.085;
+  bg -= vec3(0.030, 0.028, 0.026) * dots * 0.5;
 
-  // Faint outer glow in the ball palette.
+  // The field falloff becomes a soft shadow under the blobs.
   float gf = clamp(field / max(threshold, 1.0e-3), 0.0, 1.0);
-  float glow = gf * gf * gf * (1.0 + clamp(u.param1, -0.9, 3.0));
-  vec3 glowCol = mix(vec3(0.06, 0.55, 0.72), vec3(0.62, 0.26, 0.92), gf);
-  vec3 outside = bg + glowCol * glow * 0.85;
+  float shade = gf * gf * gf * (1.0 + clamp(u.param1, -0.9, 3.0));
+  vec3 outside = bg - vec3(0.16, 0.15, 0.14) * shade * 0.55;
 
   vec3 col = mix(outside, inside, mask);
 
-  // Crisp contour line right on the iso-surface.
+  // Fine ink contour right on the iso-surface.
   float ringX = (field - threshold) / (aa * 3.5);
   float ring = exp(-ringX * ringX);
-  col += mix(vec3(0.30, 0.95, 1.00), vec3(0.95, 0.55, 1.00), depth) * ring * 0.30;
+  col = mix(col, vec3(0.24, 0.25, 0.26), ring * 0.22);
 
-  // Gentle vignette keeps the corners deep.
+  // The faintest vignette.
   vec2 vd = v_uv - 0.5;
-  col *= 1.0 - 0.55 * dot(vd, vd);
+  col *= 1.0 - 0.10 * dot(vd, vd);
 
-  // Filmic-ish rolloff so the cores bloom instead of clipping flat.
-  col = col / (1.0 + col * 0.22);
-  col = pow(max(col, vec3(0.0)), vec3(0.92));
+  col = pow(max(col, vec3(0.0)), vec3(0.97));
 
   frag_color = vec4(col, 1.0);
 }

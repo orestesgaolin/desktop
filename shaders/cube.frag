@@ -1,5 +1,5 @@
-// Neon "tron" cube: per-axis face tint, pulsing grid lines, glowing edges,
-// blinn-phong key light + rim.
+// Matte ceramic cube: muted per-axis face tints, thin grout seams, soft
+// key light with a restrained specular and a whisper of rim.
 uniform FragInfo {
   vec4 light_dir;   // xyz: direction TO the light, normalized
   vec4 camera_pos;  // xyz
@@ -23,36 +23,34 @@ void main() {
   vec3 tint;
   if (anrm.x > anrm.y && anrm.x > anrm.z) {
     fc = v_local.yz;
-    tint = vec3(1.0, 0.30, 0.62);   // magenta X faces
+    tint = vec3(0.78, 0.58, 0.46);  // clay X faces
   } else if (anrm.y > anrm.z) {
     fc = v_local.zx;
-    tint = vec3(0.25, 0.90, 1.00);  // cyan Y faces
+    tint = vec3(0.58, 0.66, 0.54);  // sage Y faces
   } else {
     fc = v_local.xy;
-    tint = vec3(1.00, 0.62, 0.25);  // amber Z faces
+    tint = vec3(0.47, 0.57, 0.66);  // dusty blue Z faces
   }
 
-  // Glowing border of each face.
-  vec2 e2 = abs(fc);
-  float edge = max(e2.x, e2.y);
-  float glow_edge = smoothstep(0.80, 0.98, edge);
-
-  // Animated inner grid (antialiased with derivatives).
+  // Thin grout seams, antialiased with derivatives.
   vec2 gcoord = fc * 2.0;
   vec2 g = abs(fract(gcoord + 0.5) - 0.5) / max(fwidth(gcoord), vec2(1e-4));
-  float grid_line = 1.0 - min(min(g.x, g.y), 1.0);
-  float pulse = 0.5 + 0.5 * sin(finfo.time * 2.0 - (fc.x + fc.y) * 2.2);
+  float seam = 1.0 - min(min(g.x, g.y) / 3.0, 1.0);
+
+  // Slightly darker border at the face edges.
+  vec2 e2 = abs(fc);
+  float border = smoothstep(0.90, 1.0, max(e2.x, e2.y));
 
   float diff = max(dot(n, l), 0.0);
   vec3 h = normalize(l + vdir);
-  float spec = pow(max(dot(n, h), 0.0), 48.0);
+  float spec = pow(max(dot(n, h), 0.0), 24.0);
   float rim = pow(1.0 - max(dot(n, vdir), 0.0), 3.0);
 
-  vec3 col = vec3(0.05, 0.06, 0.09) * (0.35 + 0.85 * diff);
-  col += tint * grid_line * (0.20 + 0.45 * pulse);
-  col += tint * glow_edge * (0.85 + 0.40 * pulse);
-  col += vec3(1.0) * spec * 0.55;
-  col += tint * rim * 0.35;
+  vec3 col = tint * (0.78 + 0.26 * diff);
+  col = mix(col, col * 0.72, seam * 0.7);
+  col = mix(col, col * 0.86, border);
+  col += vec3(1.0, 0.98, 0.94) * spec * 0.12;
+  col += vec3(1.0) * rim * 0.05;
 
   frag_color = vec4(col, 1.0);
 }

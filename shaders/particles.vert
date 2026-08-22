@@ -34,17 +34,18 @@ void main() {
 
   vec3 world = vec3(cos(ang) * radius, y, sin(ang) * radius);
 
-  // Star colors: warm core, blue-white arms, sprinkled pink nebulae.
-  vec3 c_core = vec3(1.00, 0.85, 0.58);
-  vec3 c_arm = vec3(0.55, 0.70, 1.00);
+  // Star colors: quiet palette — warm cream core, pale ice arms, a few
+  // soft aurora-green accents.
+  vec3 c_core = vec3(1.00, 0.93, 0.78);
+  vec3 c_arm = vec3(0.72, 0.79, 0.88);
   vec3 col = mix(c_core, c_arm, smoothstep(0.05, 0.55, rr));
   float w = fract(seed.w * 97.13);
   if (seed.w > 0.975 && rr > 0.3) {
-    col = vec3(1.0, 0.45, 0.75);  // emission nebulae
+    col = vec3(0.62, 0.78, 0.70);  // aurora accents
   } else if (seed.w < 0.02) {
-    col = vec3(0.80, 0.92, 1.00);  // hot young stars
+    col = vec3(0.85, 0.90, 0.97);  // hot young stars
   }
-  float bright = mix(0.42, 0.10, rr) * (0.45 + 0.85 * w);
+  float bright = mix(0.38, 0.09, rr) * (0.45 + 0.85 * w);
 
   float size = vinfo.size_scale
       * mix(0.020, 0.080, pow(fract(seed.w * 7.31), 2.0))

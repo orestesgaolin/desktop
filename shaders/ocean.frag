@@ -49,12 +49,12 @@ const float T_MAX        = 60.0;
 const float SUN_AZIMUTH   = 0.62;
 const float SUN_ELEVATION = 0.055;
 
-const vec3 SKY_ZENITH  = vec3(0.055, 0.105, 0.210);  // deep indigo
-const vec3 SKY_TEAL    = vec3(0.105, 0.290, 0.335);  // teal mid band
-const vec3 SKY_HORIZON = vec3(1.000, 0.545, 0.235);  // warm orange
-const vec3 SUN_TINT    = vec3(1.000, 0.760, 0.430);
-const vec3 WATER_DEEP  = vec3(0.010, 0.062, 0.082);
-const vec3 WATER_CREST = vec3(0.048, 0.205, 0.185);
+const vec3 SKY_ZENITH  = vec3(0.340, 0.400, 0.470);  // pale slate
+const vec3 SKY_TEAL    = vec3(0.520, 0.570, 0.600);  // grey mid band
+const vec3 SKY_HORIZON = vec3(0.880, 0.830, 0.730);  // pale gold haze
+const vec3 SUN_TINT    = vec3(1.000, 0.930, 0.790);
+const vec3 WATER_DEEP  = vec3(0.055, 0.085, 0.095);
+const vec3 WATER_CREST = vec3(0.150, 0.205, 0.205);
 
 // ---------------------------------------------------------------------------
 // Hash / value noise (used only for foam breakup and output dither)
