@@ -4,9 +4,11 @@ import 'package:flutter_gpu/gpu.dart' as gpu;
 import 'package:marionette_flutter/marionette_flutter.dart';
 
 import 'src/demos/demo.dart';
+import 'src/demos/live.dart';
 import 'src/demos/registry.dart';
 import 'src/frame.dart';
 import 'src/gpu_kit.dart';
+import 'src/live_editor.dart';
 import 'src/surface_view.dart';
 
 void main() {
@@ -146,28 +148,37 @@ class _HomeShellState extends State<HomeShell> {
               children: [
                 _TopBar(demo: demo, playback: _playback),
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 0, 14, 14),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          const ColoredBox(color: Colors.black),
-                          GpuSurfaceView(
-                            demo: demo,
-                            playback: _playback,
-                            library: widget.library,
-                          ),
-                          if (demo.hint.isNotEmpty)
-                            Positioned(
-                              left: 14,
-                              bottom: 12,
-                              child: _HintChip(text: demo.hint),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                              4, 0, demo is LiveShaderDemo ? 12 : 14, 14),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                const ColoredBox(color: Colors.black),
+                                GpuSurfaceView(
+                                  demo: demo,
+                                  playback: _playback,
+                                  library: widget.library,
+                                ),
+                                if (demo.hint.isNotEmpty)
+                                  Positioned(
+                                    left: 14,
+                                    bottom: 12,
+                                    child: _HintChip(text: demo.hint),
+                                  ),
+                              ],
                             ),
-                        ],
+                          ),
+                        ),
                       ),
-                    ),
+                      if (demo is LiveShaderDemo) LiveEditorPanel(demo: demo),
+                    ],
                   ),
                 ),
               ],

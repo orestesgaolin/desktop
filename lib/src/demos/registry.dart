@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'cube.dart';
 import 'demo.dart';
 import 'fullscreen.dart';
+import 'live.dart';
 import 'particles.dart';
 import 'triangle.dart';
 
@@ -18,6 +19,7 @@ List<GpuDemo> buildDemos() {
     _metaballs(),
     _plasma(),
     _mandelbrot(),
+    LiveShaderDemo(),
   ];
 }
 

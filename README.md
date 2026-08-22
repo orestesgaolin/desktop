@@ -19,6 +19,7 @@ impellerc-compiled GLSL — no Canvas, no CustomPaint drawing, no
 | Metaballs | Analytic 2D iso-surface with gradient shading (one ball follows the pointer) |
 | Plasma | Domain-warped oldschool plasma with cosine palettes |
 | Mandelbrot | Smooth escape-time fractal; drag to pan, scroll for anchored zoom |
+| Live Editor | ShaderToy-style: type GLSL, ⌘⏎ compiles it at runtime and hot-swaps the pipeline |
 
 Toolbar: play/pause, time scale, and render-scale (50/75/100 % of native
 resolution). The stats readout shows live fps and the surface size in
@@ -61,3 +62,23 @@ flutter run -d macos
   fullscreen shader-art demos share a 3-vertex fullscreen-triangle
   pipeline and a common `FragInfo` uniform contract (resolution, pointer,
   time, 4 generic params).
+
+## Live Editor
+
+The last tile is a runtime shader editor. There is no GLSL compiler in the
+engine (Impeller precompiles by design), so the app shells out to the
+SDK's own `impellerc` (`lib/src/live_compiler.dart` finds it via
+`$IMPELLERC`, the `flutter` on PATH, or FVM installs), compiles the typed
+source plus a fixed fullscreen vertex shader into a temp shader bundle
+(~100-500 ms), loads it with `gpu.ShaderLibrary.fromBytes`, and swaps the
+render pipeline on the next frame. Compile errors from `impellerc` show
+in a console under the editor with `LiveFragment:<line>` positions.
+Uniforms bind leniently by reflection, so trimming members from the
+`FragInfo` block is fine.
+
+Notes:
+- macOS App Sandbox is disabled in the Runner entitlements so the app may
+  spawn `impellerc` — fine for a local dev playground, do not ship a
+  distributable build this way without revisiting.
+- `dart run tool/live_compiler_smoke.dart` smoke-tests the compiler
+  outside the app.

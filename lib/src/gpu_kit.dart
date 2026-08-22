@@ -21,7 +21,9 @@ Future<gpu.ShaderLibrary> loadShaderLibrary() async {
 /// Writes uniform struct members by name, using the shader's reflection data
 /// for offsets and total size. This avoids hardcoding std140 layout rules.
 class UniformWriter {
-  UniformWriter(this.slot) {
+  /// [lenient] skips members the shader does not declare instead of throwing.
+  /// Used by the live editor, where the user may trim the uniform block.
+  UniformWriter(this.slot, {this.lenient = false}) {
     final size = slot.sizeInBytes;
     if (size == null) {
       throw StateError('Shader has no uniform struct "${slot.uniformName}"');
@@ -30,26 +32,38 @@ class UniformWriter {
   }
 
   final gpu.UniformSlot slot;
+  final bool lenient;
   late final ByteData data;
-  final Map<String, int> _offsets = <String, int>{};
+  final Map<String, int?> _offsets = <String, int?>{};
 
-  int _offset(String member) => _offsets[member] ??=
-      slot.getMemberOffsetInBytes(member) ??
-      (throw StateError(
-          'Uniform "${slot.uniformName}" has no member "$member"'));
+  int? _offset(String member) {
+    if (!_offsets.containsKey(member)) {
+      _offsets[member] = slot.getMemberOffsetInBytes(member);
+    }
+    final offset = _offsets[member];
+    if (offset == null && !lenient) {
+      throw StateError(
+          'Uniform "${slot.uniformName}" has no member "$member"');
+    }
+    return offset;
+  }
 
   void setFloat(String member, double x) {
-    data.setFloat32(_offset(member), x, Endian.little);
+    final o = _offset(member);
+    if (o == null) return;
+    data.setFloat32(o, x, Endian.little);
   }
 
   void setVec2(String member, double x, double y) {
     final o = _offset(member);
+    if (o == null) return;
     data.setFloat32(o, x, Endian.little);
     data.setFloat32(o + 4, y, Endian.little);
   }
 
   void setVec4(String member, double x, double y, double z, double w) {
     final o = _offset(member);
+    if (o == null) return;
     data.setFloat32(o, x, Endian.little);
     data.setFloat32(o + 4, y, Endian.little);
     data.setFloat32(o + 8, z, Endian.little);
@@ -58,6 +72,7 @@ class UniformWriter {
 
   void setMat4(String member, vm.Matrix4 matrix) {
     final o = _offset(member);
+    if (o == null) return;
     final storage = matrix.storage; // column-major, matches SPIR-V layout
     for (var i = 0; i < 16; i++) {
       data.setFloat32(o + i * 4, storage[i], Endian.little);

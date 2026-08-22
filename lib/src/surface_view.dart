@@ -168,6 +168,15 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
                   style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               SelectableText(_error!, style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() => _error = null);
+                  _ticker.start();
+                },
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Resume'),
+              ),
             ],
           ),
         ),
