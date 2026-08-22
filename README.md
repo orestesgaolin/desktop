@@ -121,6 +121,13 @@ time by the `hook/build.dart` the init command wrote. Fox model: Khronos
 glTF sample, model by PixelMannen (CC0), rig/animation by @tomkranis
 (CC-BY 4.0).
 
+The PBR Studio also demonstrates `WidgetComponent`: a real, interactive
+Flutter widget (the floating "Scene Controls" card) lives on a billboard
+quad inside the 3D scene — `SceneView` hosts the subtree invisibly,
+re-captures it every frame, and raycasts pointer input onto the surface,
+so clicking the in-scene switch toggles the pillars and the slider drives
+the orbit speed.
+
 Launch placement helper: `GPU_PLAYGROUND_SCREEN=fast` opens 1280×800 on the
 highest-refresh display (ProMotion), `=main` on the main display.
 

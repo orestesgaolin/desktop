@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_scene/scene.dart';
+import 'package:flutter_scene/scene.dart' hide Material;
 import 'package:vector_math/vector_math.dart' as vm;
 
 import '../frame.dart';
@@ -45,12 +45,20 @@ class _PlaygroundViewState extends State<_PlaygroundView> {
 
   final Node _rig = Node(name: 'rig');
   final List<Node> _orbiters = [];
+  final List<Node> _pillars = [];
   Node? _torus;
 
   bool _ready = false;
   double _time = 0;
   double _fps = 0;
   int _statTicks = 0;
+
+  // Driven by the control card embedded IN the scene (WidgetComponent).
+  double _spinSpeed = 0.5;
+  bool _pillarsOn = true;
+  WidgetComponent? _cardComponent;
+  Node? _cardNode;
+  Node? _cameraNode;
 
   @override
   void initState() {
@@ -62,6 +70,10 @@ class _PlaygroundViewState extends State<_PlaygroundView> {
     });
   }
 
+  // Verification mode: disables the dithered effects (AO/SSR) whose noise
+  // inflates screenshot payloads past the marionette transport limit.
+  static const bool _captureFriendly = false;
+
   void _buildScene() {
     // "showcase" look preset from the flutter_scene-looks skill.
     scene.environmentSettings = EnvironmentSettings(
@@ -71,12 +83,12 @@ class _PlaygroundViewState extends State<_PlaygroundView> {
       bloomThreshold: 1.1,
       bloomIntensity: 0.2,
       bloomScatter: 0.7,
-      ambientOcclusionEnabled: true,
+      ambientOcclusionEnabled: !_captureFriendly,
       ambientOcclusionMethod: AmbientOcclusionMethod.groundTruth,
       ambientOcclusionBentNormals: true,
       ambientOcclusionSpecularMode: SpecularAmbientOcclusionMode.bentCone,
       ambientOcclusionIntensity: 1.0,
-      screenSpaceReflectionsEnabled: true,
+      screenSpaceReflectionsEnabled: !_captureFriendly,
       screenSpaceReflectionsIntensity: 1.0,
       vignetteEnabled: true,
       vignetteIntensity: 0.25,
@@ -158,7 +170,7 @@ class _PlaygroundViewState extends State<_PlaygroundView> {
     // Emissive pillars that feed the bloom pass.
     for (var i = 0; i < 3; i++) {
       final angle = i * 2 * math.pi / 3 + 0.5;
-      scene.add(Node(
+      final pillar = Node(
         mesh: Mesh(
           CylinderGeometry(bottomRadius: 0.06, topRadius: 0.06, height: 2.4),
           PhysicallyBasedMaterial()
@@ -167,21 +179,56 @@ class _PlaygroundViewState extends State<_PlaygroundView> {
             ..emissiveStrength = 2.0,
         ),
       )..position =
-          vm.Vector3(math.cos(angle) * 4.2, 1.3, math.sin(angle) * 4.2));
+          vm.Vector3(math.cos(angle) * 4.2, 1.3, math.sin(angle) * 4.2);
+      _pillars.add(pillar);
+      scene.add(pillar);
     }
 
+    // A real, interactive Flutter widget living on a quad inside the scene:
+    // SceneView hosts the subtree, re-captures it every frame, and raycasts
+    // pointer input onto the surface. The card controls the scene around it.
+    _cardComponent = WidgetComponent(
+        child: _SceneControlCard(
+          initialSpin: _spinSpeed,
+          initialPillars: _pillarsOn,
+          onSpinChanged: (v) => _spinSpeed = v,
+          onPillarsChanged: (v) => _pillarsOn = v,
+        ),
+      size: const Size(250, 160),
+      pixelRatio: 2.0,
+      worldHeight: 1.15,
+    );
+    _cardNode = Node(name: 'control-card')
+      ..position = vm.Vector3(0, 2.9, 0)
+      ..addComponent(_cardComponent!);
+    scene.add(_cardNode!);
+
     // Camera node driven by the orbit controller (input via CameraControls).
-    final cameraNode = Node(name: 'camera')
+    _cameraNode = Node(name: 'camera')
       ..addComponent(CameraComponent(activateOnMount: true))
       ..addComponent(_orbit);
-    scene.add(cameraNode);
+    scene.add(_cameraNode!);
   }
+
+  double _rigAngle = 0;
 
   void _onTick(Duration elapsed, double dt) {
     final playback = widget.playback;
-    _time += playback.paused ? 0 : dt * playback.speed;
+    final scaled = playback.paused ? 0.0 : dt * playback.speed;
+    _time += scaled;
+    _rigAngle += scaled * _spinSpeed;
 
-    _rig.rotation = vm.Quaternion.axisAngle(vm.Vector3(0, 1, 0), _time * 0.5);
+    for (final pillar in _pillars) {
+      pillar.visible = _pillarsOn;
+    }
+
+    // Billboard the in-scene control card toward the camera.
+    final cameraNode = _cameraNode;
+    if (cameraNode != null) {
+      _cardNode?.lookAt(cameraNode.position);
+    }
+
+    _rig.rotation = vm.Quaternion.axisAngle(vm.Vector3(0, 1, 0), _rigAngle);
     for (var i = 0; i < _orbiters.length; i++) {
       final phase = i * math.pi / 2;
       _orbiters[i].position = vm.Vector3(
@@ -213,6 +260,91 @@ class _PlaygroundViewState extends State<_PlaygroundView> {
     return CameraControls(
       controller: _orbit,
       child: SceneView(scene, onTick: _onTick),
+    );
+  }
+}
+
+/// The widget rendered onto (and interactive on) the in-scene quad.
+class _SceneControlCard extends StatefulWidget {
+  const _SceneControlCard({
+    required this.initialSpin,
+    required this.initialPillars,
+    required this.onSpinChanged,
+    required this.onPillarsChanged,
+  });
+
+  final double initialSpin;
+  final bool initialPillars;
+  final ValueChanged<double> onSpinChanged;
+  final ValueChanged<bool> onPillarsChanged;
+
+  @override
+  State<_SceneControlCard> createState() => _SceneControlCardState();
+}
+
+class _SceneControlCardState extends State<_SceneControlCard> {
+  late double _spin = widget.initialSpin;
+  late bool _pillars = widget.initialPillars;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFF22D3EE);
+    return Material(
+      color: const Color(0xEE131824),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: accent.withValues(alpha: 0.5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('SCENE CONTROLS',
+                style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
+                    color: accent)),
+            Row(
+              children: [
+                const Expanded(
+                    child: Text('Pillars',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600))),
+                Switch(
+                  value: _pillars,
+                  activeThumbColor: accent,
+                  onChanged: (v) {
+                    setState(() => _pillars = v);
+                    widget.onPillarsChanged(v);
+                  },
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                const Text('Spin',
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Expanded(
+                  child: Slider(
+                    value: _spin,
+                    min: 0,
+                    max: 2,
+                    activeColor: accent,
+                    onChanged: (v) {
+                      setState(() => _spin = v);
+                      widget.onSpinChanged(v);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
