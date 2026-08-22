@@ -21,9 +21,16 @@ const _accent = Color(0xFF22D3EE);
 /// and wrapped zero-copy into a [gpu.Texture] via [gpu.Texture.fromImage],
 /// then handed to [WidgetStageDemo.setCard].
 class WidgetSourcePanel extends StatefulWidget {
-  const WidgetSourcePanel({super.key, required this.demo});
+  const WidgetSourcePanel({
+    super.key,
+    required this.demo,
+    this.width = 312,
+    this.margin = const EdgeInsets.fromLTRB(0, 0, 14, 14),
+  });
 
   final WidgetStageDemo demo;
+  final double? width;
+  final EdgeInsets margin;
 
   @override
   State<WidgetSourcePanel> createState() => _WidgetSourcePanelState();
@@ -140,8 +147,8 @@ class _WidgetSourcePanelState extends State<WidgetSourcePanel>
   Widget build(BuildContext context) {
     final accent = HSLColor.fromAHSL(1, _hue, 0.8, 0.62).toColor();
     return Container(
-      width: 312,
-      margin: const EdgeInsets.fromLTRB(0, 0, 14, 14),
+      width: widget.width,
+      margin: widget.margin,
       decoration: BoxDecoration(
         color: _panelBg,
         borderRadius: BorderRadius.circular(14),

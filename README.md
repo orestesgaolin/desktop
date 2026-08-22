@@ -33,12 +33,24 @@ and 60 fps on a 60 Hz external display. Launch with
 `GPU_PLAYGROUND_PROMOTION=1` to open the window on the highest-refresh
 screen automatically, or just drag it there.
 
+## Every demo is editable
+
+There is no precompiled shader bundle: **all GLSL is compiled at
+runtime**. Each demo declares its sources (`shaders/*.vert|frag`, shipped
+as plain text assets); on first open they are compiled by the SDK's
+`impellerc` and loaded with `gpu.ShaderLibrary.fromBytes`. The `{ }`
+toolbar button opens a shader editor for the current demo — one tab per
+stage — and ⌘⏎ recompiles and hot-swaps its pipelines while it runs.
+Compile errors show inline with `name:line` positions and the previous
+pipeline keeps rendering. On Widget Stage the side panel has
+Widgets / GLSL tabs.
+
 ## Requirements
 
 - Flutter **master** channel (Flutter GPU is not available on stable).
   The repo is pinned via `.fvmrc` for [fvm](https://fvm.app) users.
-- Native assets enabled: `flutter config --enable-native-assets`
-  (needed for the shader build hook).
+- The `impellerc` binary from a Flutter SDK. It is auto-discovered from
+  the `flutter` on PATH or FVM installs; set `$IMPELLERC` to override.
 - macOS with Impeller (default on master; also forced via
   `FLTEnableImpeller` in `macos/Runner/Info.plist`).
 
@@ -46,22 +58,20 @@ screen automatically, or just drag it there.
 
 ```sh
 fvm use master          # or make sure `flutter` is the master channel
-flutter config --enable-native-assets
 flutter run -d macos
 ```
 
 ## How it works
 
-- `shaders/*.vert|frag` — Impeller-dialect GLSL, compiled by `impellerc`
-  into a single shader bundle.
-- `playground.shaderbundle.json` — the bundle manifest (shader name → file).
-- `hook/build.dart` — a Dart build hook (`package:hooks` +
-  `package:flutter_gpu_shaders`) that compiles the bundle on every build
-  into `build/shaderbundles/playground.shaderbundle`, which is listed as a
-  regular Flutter asset.
-- `lib/src/gpu_kit.dart` — shader-bundle loading and a reflection-based
-  `UniformWriter` (uniform member offsets come from shader reflection, so
-  no hardcoded std140 layout math).
+- `shaders/*.vert|frag` — Impeller-dialect GLSL, bundled as plain text
+  assets and compiled at runtime (`lib/src/live_compiler.dart` →
+  `impellerc` → `ShaderLibrary.fromBytes`).
+- `lib/src/demos/demo.dart` — each demo declares `ShaderDoc`s (name,
+  stage, source); `ensureReady`/`recompile` compile them into a bundle
+  and rebuild pipelines. `lib/src/shader_editor.dart` is the editor UI.
+- `lib/src/gpu_kit.dart` — a reflection-based `UniformWriter` (uniform
+  member offsets come from shader reflection, so no hardcoded std140
+  layout math and user edits to uniform blocks bind leniently).
 - `lib/src/surface_view.dart` — hosts a `GpuImageSurface`: each Ticker
   tick acquires a frame texture, lets the active demo encode its render
   pass(es), presents, and paints `surface.currentImage`.
@@ -96,20 +106,11 @@ and cached with fallbacks (`stableColorFormat`), the app opts out of wide
 gamut (`FLTEnableWideGamut=false`), and the capture path falls back to a
 CPU pixel copy when `fromImage` cannot wrap the snapshot.
 
-## Live Editor
+## Notes
 
-The last tile is a runtime shader editor. There is no GLSL compiler in the
-engine (Impeller precompiles by design), so the app shells out to the
-SDK's own `impellerc` (`lib/src/live_compiler.dart` finds it via
-`$IMPELLERC`, the `flutter` on PATH, or FVM installs), compiles the typed
-source plus a fixed fullscreen vertex shader into a temp shader bundle
-(~100-500 ms), loads it with `gpu.ShaderLibrary.fromBytes`, and swaps the
-render pipeline on the next frame. Compile errors from `impellerc` show
-in a console under the editor with `LiveFragment:<line>` positions.
-Uniforms bind leniently by reflection, so trimming members from the
-`FragInfo` block is fine.
-
-Notes:
+- There is no GLSL compiler inside the engine (Impeller precompiles by
+  design), which is why the app shells out to `impellerc`. Compiles take
+  ~150–600 ms.
 - macOS App Sandbox is disabled in the Runner entitlements so the app may
   spawn `impellerc` — fine for a local dev playground, do not ship a
   distributable build this way without revisiting.

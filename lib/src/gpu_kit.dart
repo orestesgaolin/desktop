@@ -3,21 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter_gpu/gpu.dart' as gpu;
 import 'package:vector_math/vector_math.dart' as vm;
 
-const String kShaderBundlePath = 'build/shaderbundles/playground.shaderbundle';
-
-gpu.ShaderLibrary? _library;
-
-/// Loads (once) the impellerc-compiled shader bundle produced by the build
-/// hook in `hook/build.dart`.
-Future<gpu.ShaderLibrary> loadShaderLibrary() async {
-  if (_library != null) return _library!;
-  final library = await gpu.ShaderLibrary.fromAsset(kShaderBundlePath);
-  if (library == null) {
-    throw Exception('Could not parse shader bundle at $kShaderBundlePath');
-  }
-  return _library = library;
-}
-
 /// Writes uniform struct members by name, using the shader's reflection data
 /// for offsets and total size. This avoids hardcoding std140 layout rules.
 class UniformWriter {

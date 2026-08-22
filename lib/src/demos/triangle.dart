@@ -17,6 +17,18 @@ class TriangleDemo extends GpuDemo {
   @override
   IconData get icon => Icons.change_history;
 
+  @override
+  late final List<ShaderDoc> shaders = [
+    ShaderDoc(
+        name: 'TriangleVertex',
+        stage: 'vertex',
+        asset: 'shaders/triangle.vert'),
+    ShaderDoc(
+        name: 'TriangleFragment',
+        stage: 'fragment',
+        asset: 'shaders/triangle.frag'),
+  ];
+
   late gpu.RenderPipeline _pipeline;
   late gpu.Shader _vert;
   late gpu.Shader _frag;

@@ -24,6 +24,18 @@ class ParticlesDemo extends GpuDemo {
   @override
   IconData get icon => Icons.blur_circular;
 
+  @override
+  late final List<ShaderDoc> shaders = [
+    ShaderDoc(
+        name: 'ParticlesVertex',
+        stage: 'vertex',
+        asset: 'shaders/particles.vert'),
+    ShaderDoc(
+        name: 'ParticlesFragment',
+        stage: 'fragment',
+        asset: 'shaders/particles.frag'),
+  ];
+
   late gpu.RenderPipeline _pipeline;
   late gpu.Shader _vert;
   late gpu.DeviceBuffer _corners;

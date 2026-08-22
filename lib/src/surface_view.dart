@@ -17,12 +17,10 @@ class GpuSurfaceView extends StatefulWidget {
     super.key,
     required this.demo,
     required this.playback,
-    required this.library,
   });
 
   final GpuDemo demo;
   final PlaybackController playback;
-  final gpu.ShaderLibrary library;
 
   @override
   State<GpuSurfaceView> createState() => _GpuSurfaceViewState();
@@ -37,6 +35,7 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
   gpu.GpuImageSurface? _surface;
   ui.Image? _image;
   String? _error;
+  bool _compileKicked = false;
 
   double _time = 0;
   Duration? _lastElapsed;
@@ -65,7 +64,9 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
     if (oldWidget.demo != widget.demo) {
       _pendingDrag = Offset.zero;
       _pendingScroll = 0;
+      _pendingTapUv = null;
       _time = 0;
+      _compileKicked = false;
       if (_error != null) {
         _error = null;
         _ticker.start();
@@ -86,7 +87,14 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
         : (elapsed - _lastElapsed!).inMicroseconds / 1e6;
     _lastElapsed = elapsed;
 
-    if (!mounted || _size.isEmpty) return;
+    if (!mounted) return;
+
+    if (!widget.demo.isReady) {
+      _kickCompile();
+      return;
+    }
+
+    if (_size.isEmpty) return;
 
     final playback = widget.playback;
     final scale = playback.renderScale * _dpr;
@@ -101,8 +109,6 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
       } else if (surface.width != w || surface.height != h) {
         surface.resize(w, h);
       }
-
-      widget.demo.ensureReady(widget.library);
 
       final dt = playback.paused ? 0.0 : dtRaw * playback.speed;
       _time += dt;
@@ -157,6 +163,19 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
     }
   }
 
+  /// Starts the demo's first shader compilation (idempotent per demo).
+  void _kickCompile() {
+    if (_compileKicked) return;
+    _compileKicked = true;
+    widget.demo.ensureReady().then((_) {
+      if (mounted) setState(() {});
+    }).catchError((Object e) {
+      if (!mounted) return;
+      _ticker.stop();
+      setState(() => _error = '$e');
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     _dpr = MediaQuery.devicePixelRatioOf(context);
@@ -177,7 +196,10 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: () {
-                  setState(() => _error = null);
+                  setState(() {
+                    _error = null;
+                    _compileKicked = false;
+                  });
                   _ticker.start();
                 },
                 icon: const Icon(Icons.refresh, size: 16),
@@ -185,6 +207,24 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
               ),
             ],
           ),
+        ),
+      );
+    }
+
+    if (!widget.demo.isReady) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(height: 14),
+            Text('compiling shaders…',
+                style: TextStyle(fontSize: 12, color: Color(0xFF8A93A6))),
+          ],
         ),
       );
     }

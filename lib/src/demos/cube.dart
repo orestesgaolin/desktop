@@ -21,6 +21,13 @@ class CubeDemo extends GpuDemo {
   @override
   IconData get icon => Icons.view_in_ar;
 
+  @override
+  late final List<ShaderDoc> shaders = [
+    ShaderDoc(name: 'CubeVertex', stage: 'vertex', asset: 'shaders/cube.vert'),
+    ShaderDoc(
+        name: 'CubeFragment', stage: 'fragment', asset: 'shaders/cube.frag'),
+  ];
+
   late gpu.RenderPipeline _pipeline;
   late gpu.Shader _vert;
   late gpu.Shader _frag;

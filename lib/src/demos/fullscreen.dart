@@ -19,9 +19,24 @@ class FullscreenDemo extends GpuDemo {
     required this.subtitle,
     required this.icon,
     required this.shaderName,
+    this.fragmentAsset,
+    String? fragmentSource,
     this.hint = '',
     this.onFrame,
-  });
+    this.editorByDefault = false,
+  }) : assert(fragmentAsset != null || fragmentSource != null) {
+    shaders = [
+      ShaderDoc(
+          name: 'FullscreenVertex',
+          stage: 'vertex',
+          asset: 'shaders/fullscreen.vert'),
+      ShaderDoc(
+          name: shaderName,
+          stage: 'fragment',
+          asset: fragmentAsset,
+          source: fragmentSource),
+    ];
+  }
 
   @override
   final String name;
@@ -33,13 +48,20 @@ class FullscreenDemo extends GpuDemo {
   final IconData icon;
 
   final String shaderName;
+  final String? fragmentAsset;
+  @override
+  final bool editorByDefault;
+
+  @override
+  late final List<ShaderDoc> shaders;
+
   final void Function(FrameContext frame, Float32List params)? onFrame;
 
   final Float32List _params = Float32List(4);
 
   late gpu.RenderPipeline _pipeline;
   late gpu.Shader _frag;
-  late UniformWriter _fragInfo;
+  UniformWriter? _fragInfo;
 
   @override
   void init(gpu.ShaderLibrary library) {
@@ -50,7 +72,11 @@ class FullscreenDemo extends GpuDemo {
       _frag,
       vertexLayout: kFullscreenLayout,
     );
-    _fragInfo = UniformWriter(_frag.getUniformSlot('FragInfo'));
+    // Lenient, and optional: user edits may trim FragInfo members or drop
+    // the block entirely.
+    final slot = _frag.getUniformSlot('FragInfo');
+    _fragInfo =
+        slot.sizeInBytes != null ? UniformWriter(slot, lenient: true) : null;
   }
 
   @override
@@ -68,16 +94,20 @@ class FullscreenDemo extends GpuDemo {
     pass.bindPipeline(_pipeline);
     pass.bindVertexBuffer(fullscreenTriangle());
 
-    _fragInfo
-      ..setVec2('resolution', target.width.toDouble(), target.height.toDouble())
-      ..setVec2('pointer', frame.pointerUv.dx, frame.pointerUv.dy)
-      ..setFloat('time', frame.time)
-      ..setFloat('param0', _params[0])
-      ..setFloat('param1', _params[1])
-      ..setFloat('param2', _params[2])
-      ..setFloat('param3', _params[3]);
-    pass.bindUniform(
-        _frag.getUniformSlot('FragInfo'), _fragInfo.emplace(frame.transients));
+    final fragInfo = _fragInfo;
+    if (fragInfo != null) {
+      fragInfo
+        ..setVec2(
+            'resolution', target.width.toDouble(), target.height.toDouble())
+        ..setVec2('pointer', frame.pointerUv.dx, frame.pointerUv.dy)
+        ..setFloat('time', frame.time)
+        ..setFloat('param0', _params[0])
+        ..setFloat('param1', _params[1])
+        ..setFloat('param2', _params[2])
+        ..setFloat('param3', _params[3]);
+      pass.bindUniform(_frag.getUniformSlot('FragInfo'),
+          fragInfo.emplace(frame.transients));
+    }
 
     pass.draw(3);
   }

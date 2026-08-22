@@ -43,6 +43,13 @@ class WidgetStageDemo extends GpuDemo {
   static const double _kFloorY = -0.62;
   static const double _kHalfH = 0.38;
 
+  @override
+  late final List<ShaderDoc> shaders = [
+    ShaderDoc(name: 'CardVertex', stage: 'vertex', asset: 'shaders/card.vert'),
+    ShaderDoc(
+        name: 'CardFragment', stage: 'fragment', asset: 'shaders/card.frag'),
+  ];
+
   late gpu.RenderPipeline _pipeline;
   late gpu.Shader _vert;
   late gpu.Shader _frag;

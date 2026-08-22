@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'cube.dart';
 import 'demo.dart';
 import 'fullscreen.dart';
-import 'live.dart';
 import 'particles.dart';
+import 'scratch.dart';
 import 'triangle.dart';
 import 'widget_stage.dart';
 
@@ -21,7 +21,7 @@ List<GpuDemo> buildDemos() {
     _plasma(),
     _mandelbrot(),
     WidgetStageDemo(),
-    LiveShaderDemo(),
+    buildScratchDemo(),
   ];
 }
 
@@ -34,6 +34,7 @@ FullscreenDemo _raymarch() {
     hint: 'drag to orbit',
     icon: Icons.brightness_low,
     shaderName: 'RaymarchFragment',
+    fragmentAsset: 'shaders/raymarch.frag',
     onFrame: (frame, params) {
       yaw -= frame.dragDelta.dx * 0.008;
       pitch = (pitch + frame.dragDelta.dy * 0.006).clamp(-0.30, 0.85);
@@ -52,6 +53,7 @@ FullscreenDemo _ocean() {
     hint: 'drag to look around',
     icon: Icons.waves,
     shaderName: 'OceanFragment',
+    fragmentAsset: 'shaders/ocean.frag',
     onFrame: (frame, params) {
       yaw -= frame.dragDelta.dx * 0.005;
       pitch = (pitch - frame.dragDelta.dy * 0.003).clamp(-0.22, 0.22);
@@ -68,6 +70,7 @@ FullscreenDemo _metaballs() {
     hint: 'move the pointer — one ball is yours',
     icon: Icons.bubble_chart,
     shaderName: 'MetaballsFragment',
+    fragmentAsset: 'shaders/metaballs.frag',
   );
 }
 
@@ -78,6 +81,7 @@ FullscreenDemo _plasma() {
     hint: 'pointer stirs the field',
     icon: Icons.waves_outlined,
     shaderName: 'PlasmaFragment',
+    fragmentAsset: 'shaders/plasma.frag',
   );
 }
 
@@ -91,6 +95,7 @@ FullscreenDemo _mandelbrot() {
     hint: 'drag to pan · scroll to zoom',
     icon: Icons.all_inclusive,
     shaderName: 'MandelbrotFragment',
+    fragmentAsset: 'shaders/mandelbrot.frag',
     onFrame: (frame, params) {
       final h = frame.sizeLogical.height;
       if (h > 0) {

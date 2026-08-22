@@ -1,15 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gpu/gpu.dart' as gpu;
 import 'package:marionette_flutter/marionette_flutter.dart';
 
 import 'src/demos/demo.dart';
-import 'src/demos/live.dart';
 import 'src/demos/registry.dart';
 import 'src/demos/widget_stage.dart';
 import 'src/frame.dart';
-import 'src/gpu_kit.dart';
-import 'src/live_editor.dart';
+import 'src/shader_editor.dart';
 import 'src/surface_view.dart';
 import 'src/widget_panel.dart';
 
@@ -57,8 +54,8 @@ class GpuPlaygroundApp extends StatelessWidget {
   }
 }
 
-/// Loads the shader bundle before showing the gallery, with a useful error
-/// screen if the GPU context or bundle is unavailable.
+/// Verifies the runtime shader compiler is available before showing the
+/// gallery — every demo's GLSL is compiled through impellerc at runtime.
 class BootstrapScreen extends StatefulWidget {
   const BootstrapScreen({super.key});
 
@@ -67,12 +64,12 @@ class BootstrapScreen extends StatefulWidget {
 }
 
 class _BootstrapScreenState extends State<BootstrapScreen> {
-  late final Future<gpu.ShaderLibrary> _library = loadShaderLibrary();
+  late final Future<String> _impellerc = GpuDemo.compiler.findImpellerc();
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<gpu.ShaderLibrary>(
-      future: _library,
+    return FutureBuilder<String>(
+      future: _impellerc,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Scaffold(
@@ -84,15 +81,15 @@ class _BootstrapScreenState extends State<BootstrapScreen> {
                   children: [
                     const Icon(Icons.gpp_bad_outlined, size: 44),
                     const SizedBox(height: 16),
-                    Text('Flutter GPU is unavailable',
+                    Text('Shader compiler not found',
                         style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 12),
                     SelectableText(
                       '${snapshot.error}\n\n'
-                      'This app needs the Impeller renderer and the '
-                      '"$kShaderBundlePath" asset built by hook/build.dart '
-                      '(requires: flutter config --enable-native-assets, '
-                      'Flutter master channel).',
+                      'All shaders are compiled at runtime with the Flutter '
+                      "SDK's impellerc. Point the IMPELLERC environment "
+                      'variable at the binary if it was not found '
+                      'automatically.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: _textDim, height: 1.5),
                     ),
@@ -107,16 +104,14 @@ class _BootstrapScreenState extends State<BootstrapScreen> {
             body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           );
         }
-        return HomeShell(library: snapshot.data!);
+        return const HomeShell();
       },
     );
   }
 }
 
 class HomeShell extends StatefulWidget {
-  const HomeShell({super.key, required this.library});
-
-  final gpu.ShaderLibrary library;
+  const HomeShell({super.key});
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -126,6 +121,7 @@ class _HomeShellState extends State<HomeShell> {
   final List<GpuDemo> _demos = buildDemos();
   final PlaybackController _playback = PlaybackController();
   int _selected = 0;
+  bool _showEditor = false;
 
   @override
   void dispose() {
@@ -133,9 +129,21 @@ class _HomeShellState extends State<HomeShell> {
     super.dispose();
   }
 
+  void _select(int index) {
+    setState(() {
+      _selected = index;
+      if (_demos[index].editorByDefault) _showEditor = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final demo = _demos[_selected];
+    final Widget? sidePanel = demo is WidgetStageDemo
+        ? _StagePanel(key: ObjectKey(demo), demo: demo)
+        : _showEditor
+            ? ShaderEditorPanel(key: ObjectKey(demo), demo: demo)
+            : null;
     return Scaffold(
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -143,12 +151,19 @@ class _HomeShellState extends State<HomeShell> {
           _Sidebar(
             demos: _demos,
             selected: _selected,
-            onSelect: (i) => setState(() => _selected = i),
+            onSelect: _select,
           ),
           Expanded(
             child: Column(
               children: [
-                _TopBar(demo: demo, playback: _playback),
+                _TopBar(
+                  demo: demo,
+                  playback: _playback,
+                  showEditor: _showEditor,
+                  onToggleEditor: demo is WidgetStageDemo
+                      ? null
+                      : () => setState(() => _showEditor = !_showEditor),
+                ),
                 Expanded(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -156,13 +171,7 @@ class _HomeShellState extends State<HomeShell> {
                       Expanded(
                         child: Padding(
                           padding: EdgeInsets.fromLTRB(
-                              4,
-                              0,
-                              demo is LiveShaderDemo ||
-                                      demo is WidgetStageDemo
-                                  ? 12
-                                  : 14,
-                              14),
+                              4, 0, sidePanel != null ? 12 : 14, 14),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(14),
                             child: Stack(
@@ -172,7 +181,6 @@ class _HomeShellState extends State<HomeShell> {
                                 GpuSurfaceView(
                                   demo: demo,
                                   playback: _playback,
-                                  library: widget.library,
                                 ),
                                 if (demo.hint.isNotEmpty)
                                   Positioned(
@@ -185,12 +193,62 @@ class _HomeShellState extends State<HomeShell> {
                           ),
                         ),
                       ),
-                      if (demo is LiveShaderDemo) LiveEditorPanel(demo: demo),
-                      if (demo is WidgetStageDemo)
-                        WidgetSourcePanel(demo: demo),
+                      ?sidePanel,
                     ],
                   ),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Widget Stage side area: the live widgets and the GLSL editor share one
+/// panel, switched by tabs (both stay alive across switches).
+class _StagePanel extends StatefulWidget {
+  const _StagePanel({super.key, required this.demo});
+
+  final WidgetStageDemo demo;
+
+  @override
+  State<_StagePanel> createState() => _StagePanelState();
+}
+
+class _StagePanelState extends State<_StagePanel> {
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 460,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 0, 14, 8),
+            child: SegmentedButton<int>(
+              showSelectedIcon: false,
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
+              ),
+              segments: const [
+                ButtonSegment(value: 0, label: Text('Widgets')),
+                ButtonSegment(value: 1, label: Text('GLSL')),
+              ],
+              selected: {_tab},
+              onSelectionChanged: (s) => setState(() => _tab = s.first),
+            ),
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _tab,
+              children: [
+                WidgetSourcePanel(demo: widget.demo, width: null),
+                ShaderEditorPanel(demo: widget.demo, width: null),
               ],
             ),
           ),
@@ -340,10 +398,17 @@ class _DemoTile extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.demo, required this.playback});
+  const _TopBar({
+    required this.demo,
+    required this.playback,
+    required this.showEditor,
+    this.onToggleEditor,
+  });
 
   final GpuDemo demo;
   final PlaybackController playback;
+  final bool showEditor;
+  final VoidCallback? onToggleEditor;
 
   @override
   Widget build(BuildContext context) {
@@ -418,6 +483,19 @@ class _TopBar extends StatelessWidget {
                       size: 22,
                     ),
                   ),
+                  if (onToggleEditor != null)
+                    IconButton(
+                      tooltip: showEditor
+                          ? 'Hide shader editor'
+                          : 'Edit this demo\'s shaders',
+                      onPressed: onToggleEditor,
+                      isSelected: showEditor,
+                      icon: Icon(
+                        Icons.data_object,
+                        size: 19,
+                        color: showEditor ? _accent : null,
+                      ),
+                    ),
                 ],
               ),
             ),

@@ -93,19 +93,36 @@ class LiveShaderCompiler {
     ];
   }
 
-  Future<LiveCompileResult> compile(String fragmentSource) async {
+  /// Compiles a single fragment shader together with the standard fullscreen
+  /// vertex shader. Convenience wrapper over [compileBundle].
+  Future<LiveCompileResult> compile(String fragmentSource) {
+    return compileBundle({
+      'LiveVertex': (stage: 'vertex', source: kLiveVertexSource),
+      'LiveFragment': (stage: 'fragment', source: fragmentSource),
+    });
+  }
+
+  /// Compiles named shader stages (`stage` is 'vertex' or 'fragment') into
+  /// one shader bundle, returned as bytes for `ShaderLibrary.fromBytes`.
+  Future<LiveCompileResult> compileBundle(
+      Map<String, ({String stage, String source})> stages) async {
     final stopwatch = Stopwatch()..start();
     final impellerc = await findImpellerc();
     final shaderLib = '${File(impellerc).parent.path}/shader_lib';
 
     final temp = await Directory.systemTemp.createTemp('gpu_playground_live');
     try {
-      await File('${temp.path}/live.vert').writeAsString(kLiveVertexSource);
-      await File('${temp.path}/live.frag').writeAsString(fragmentSource);
-      final manifest = jsonEncode({
-        'LiveVertex': {'type': 'vertex', 'file': 'live.vert'},
-        'LiveFragment': {'type': 'fragment', 'file': 'live.frag'},
-      });
+      final manifestEntries = <String, Object>{};
+      for (final entry in stages.entries) {
+        final ext = entry.value.stage == 'vertex' ? 'vert' : 'frag';
+        final fileName = '${entry.key}.$ext';
+        await File('${temp.path}/$fileName').writeAsString(entry.value.source);
+        manifestEntries[entry.key] = {
+          'type': entry.value.stage,
+          'file': fileName,
+        };
+      }
+      final manifest = jsonEncode(manifestEntries);
       final bundlePath = '${temp.path}/live.shaderbundle';
 
       final result = await Process.run(impellerc, [
