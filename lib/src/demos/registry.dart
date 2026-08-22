@@ -6,6 +6,8 @@ import 'cube.dart';
 import 'demo.dart';
 import 'fullscreen.dart';
 import 'particles.dart';
+import 'scene_fox.dart';
+import 'scene_playground.dart';
 import 'scratch.dart';
 import 'triangle.dart';
 import 'widget_stage.dart';
@@ -21,6 +23,8 @@ List<GpuDemo> buildDemos() {
     _plasma(),
     _mandelbrot(),
     WidgetStageDemo(),
+    ScenePlaygroundDemo(),
+    SceneFoxDemo(),
     buildScratchDemo(),
   ];
 }

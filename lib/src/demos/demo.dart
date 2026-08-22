@@ -112,6 +112,30 @@ abstract class GpuDemo {
       FrameContext frame);
 }
 
+/// A gallery entry rendered by its own widget subtree (for example
+/// flutter_scene's SceneView, which drives its own frame loop) instead of the
+/// shared GpuSurfaceView. It has no editable shader documents.
+abstract class WidgetHostedDemo extends GpuDemo {
+  @override
+  List<ShaderDoc> get shaders => const [];
+
+  @override
+  bool get isReady => true;
+
+  @override
+  Future<void> ensureReady() => Future.value();
+
+  @override
+  void init(gpu.ShaderLibrary library) {}
+
+  @override
+  void render(gpu.CommandBuffer commandBuffer, gpu.Texture target,
+      FrameContext frame) {}
+
+  /// Builds the viewport widget for this demo.
+  Widget buildView(BuildContext context, PlaybackController playback);
+}
+
 gpu.Shader shaderOf(gpu.ShaderLibrary library, String name) {
   final shader = library[name];
   if (shader == null) {

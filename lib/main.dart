@@ -141,7 +141,7 @@ class _HomeShellState extends State<HomeShell> {
     final demo = _demos[_selected];
     final Widget? sidePanel = demo is WidgetStageDemo
         ? _StagePanel(key: ObjectKey(demo), demo: demo)
-        : _showEditor
+        : _showEditor && demo.shaders.isNotEmpty
             ? ShaderEditorPanel(key: ObjectKey(demo), demo: demo)
             : null;
     return Scaffold(
@@ -160,7 +160,7 @@ class _HomeShellState extends State<HomeShell> {
                   demo: demo,
                   playback: _playback,
                   showEditor: _showEditor,
-                  onToggleEditor: demo is WidgetStageDemo
+                  onToggleEditor: demo is WidgetStageDemo || demo.shaders.isEmpty
                       ? null
                       : () => setState(() => _showEditor = !_showEditor),
                 ),
@@ -178,10 +178,13 @@ class _HomeShellState extends State<HomeShell> {
                               fit: StackFit.expand,
                               children: [
                                 const ColoredBox(color: Colors.black),
-                                GpuSurfaceView(
-                                  demo: demo,
-                                  playback: _playback,
-                                ),
+                                if (demo is WidgetHostedDemo)
+                                  demo.buildView(context, _playback)
+                                else
+                                  GpuSurfaceView(
+                                    demo: demo,
+                                    playback: _playback,
+                                  ),
                                 if (demo.hint.isNotEmpty)
                                   Positioned(
                                     left: 14,

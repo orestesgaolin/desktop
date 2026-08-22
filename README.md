@@ -20,6 +20,8 @@ impellerc-compiled GLSL — no Canvas, no CustomPaint drawing, no
 | Plasma | Domain-warped oldschool plasma with cosine palettes |
 | Mandelbrot | Smooth escape-time fractal; drag to pan, scroll for anchored zoom |
 | Widget Stage | Real, live Flutter widgets captured as GPU textures and spun on a 3D carousel |
+| Scene: PBR Studio | [flutter_scene](https://pub.dev/packages/flutter_scene): scene graph, PBR + IBL, shadow-casting sun, SSR, bloom, orbit camera |
+| Scene: Animated Fox | flutter_scene glTF asset pipeline + blended skeletal animation (Khronos sample Fox) |
 | Live Editor | ShaderToy-style: type GLSL, ⌘⏎ compiles it at runtime and hot-swaps the pipeline |
 
 Toolbar: play/pause, time scale, and render-scale (50/75/100 % of native
@@ -105,6 +107,22 @@ and MSAA attachments mid-session. Mitigations: formats are queried once
 and cached with fallbacks (`stableColorFormat`), the app opts out of wide
 gamut (`FLTEnableWideGamut=false`), and the capture path falls back to a
 CPU pixel copy when `fromImage` cannot wrap the snapshot.
+
+## flutter_scene demos
+
+The two "Scene:" tiles use [flutter_scene](https://pub.dev/packages/flutter_scene),
+the 3D engine built on the same Flutter GPU API the rest of the gallery
+drives by hand. They render through its `SceneView` widget (which owns its
+frame loop), with `OrbitCameraController` + `CameraControls` for input and
+`EnvironmentSettings` presets from the package's own agent skills (installed
+under `.claude/skills/` by `dart run flutter_scene:init`). The Fox model is
+converted from `assets/Fox.glb` to the engine's `.fsceneb` format at build
+time by the `hook/build.dart` the init command wrote. Fox model: Khronos
+glTF sample, model by PixelMannen (CC0), rig/animation by @tomkranis
+(CC-BY 4.0).
+
+Launch placement helper: `GPU_PLAYGROUND_SCREEN=fast` opens 1280×800 on the
+highest-refresh display (ProMotion), `=main` on the main display.
 
 ## Notes
 
