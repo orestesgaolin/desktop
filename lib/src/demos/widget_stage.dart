@@ -29,9 +29,19 @@ class WidgetStageDemo extends GpuDemo {
   String get subtitle => 'Live widgets as GPU textures';
   @override
   String get hint =>
-      'drag / scroll spins the ring · the cards on the right are real widgets';
+      'click a card to press the real widget · drag / scroll spins the ring';
   @override
   IconData get icon => Icons.style;
+
+  /// Invoked when a tap on the stage lands on a card. [fraction] is the hit
+  /// position inside the card: (0,0) top-left .. (1,1) bottom-right, in the
+  /// source widget's orientation. Set by WidgetSourcePanel, which forwards
+  /// the press to the real widget.
+  void Function(int cardIndex, Offset fraction)? onCardTap;
+
+  static const double _kRadius = 2.9;
+  static const double _kFloorY = -0.62;
+  static const double _kHalfH = 0.38;
 
   late gpu.RenderPipeline _pipeline;
   late gpu.Shader _vert;
@@ -158,13 +168,20 @@ class WidgetStageDemo extends GpuDemo {
     pass.setDepthCompareOperation(gpu.CompareFunction.lessEqual);
     pass.setColorBlendEnable(true); // premultiplied: one, oneMinusSourceAlpha
 
-    const radius = 2.9;
-    const floorY = -0.62;
     final proj = kClipCorrection *
         vm.makePerspectiveMatrix(38 * math.pi / 180, frame.aspect, 0.1, 60.0);
     final view = vm.makeViewMatrix(
         vm.Vector3(0, 0.65, 9.6), vm.Vector3(0, -0.10, 0), vm.Vector3(0, 1, 0));
     final vm.Matrix4 viewProj = proj * view;
+
+    if (frame.tapUv != null && onCardTap != null) {
+      final hit = _hitTest(frame.tapUv!, viewProj, frame.time);
+      if (hit != null) {
+        final callback = onCardTap!;
+        // Defer out of the ticker callback before synthesizing input.
+        Future(() => callback(hit.$1, hit.$2));
+      }
+    }
 
     // Painter's order: farthest slots first so premultiplied blending
     // composites the transparent rounded corners correctly.
@@ -182,20 +199,15 @@ class WidgetStageDemo extends GpuDemo {
       final texture = _textures[card];
       if (texture == null) return;
 
-      final aspect = _aspects[card];
-      const halfH = 0.38;
-      final y = 0.05 * math.sin(frame.time * 1.3 + card * 1.9);
-      final position =
-          vm.Vector3(radius * math.sin(angle), y, radius * math.cos(angle));
-
-      vm.Matrix4 model = vm.Matrix4.translation(position) *
-          vm.Matrix4.rotationY(angle) *
-          vm.Matrix4.diagonal3(vm.Vector3(aspect * halfH, halfH, 1));
+      vm.Matrix4 model = _cardModel(card, angle, frame.time);
       if (reflection) {
+        final y = _floatY(card, frame.time);
+        final position = _slotPosition(card, angle, frame.time);
         model = vm.Matrix4.translation(
-                vm.Vector3(position.x, 2 * floorY - y, position.z)) *
+                vm.Vector3(position.x, 2 * _kFloorY - y, position.z)) *
             vm.Matrix4.rotationY(angle) *
-            vm.Matrix4.diagonal3(vm.Vector3(aspect * halfH, -halfH, 1));
+            vm.Matrix4.diagonal3(
+                vm.Vector3(_aspects[card] * _kHalfH, -_kHalfH, 1));
       }
 
       _vertInfo.setMat4('mvp', viewProj * model);
@@ -228,5 +240,64 @@ class WidgetStageDemo extends GpuDemo {
     for (final slot in slots) {
       drawSlot(slot, reflection: false);
     }
+  }
+
+  double _floatY(int card, double time) =>
+      0.05 * math.sin(time * 1.3 + card * 1.9);
+
+  vm.Vector3 _slotPosition(int card, double angle, double time) => vm.Vector3(
+        _kRadius * math.sin(angle),
+        _floatY(card, time),
+        _kRadius * math.cos(angle),
+      );
+
+  vm.Matrix4 _cardModel(int card, double angle, double time) =>
+      vm.Matrix4.translation(_slotPosition(card, angle, time)) *
+      vm.Matrix4.rotationY(angle) *
+      vm.Matrix4.diagonal3(vm.Vector3(_aspects[card] * _kHalfH, _kHalfH, 1));
+
+  /// Casts a ray through [tapUv] (uv space, y up) and intersects it with all
+  /// front-facing card quads. Returns the nearest hit as
+  /// (cardIndex, fraction), where fraction is (0,0) top-left ..
+  /// (1,1) bottom-right in the source widget's orientation.
+  (int, Offset)? _hitTest(Offset tapUv, vm.Matrix4 viewProj, double time) {
+    final inv = vm.Matrix4.copy(viewProj);
+    if (inv.invert() == 0.0) return null;
+
+    vm.Vector3? unproject(double ndcZ) {
+      final v = vm.Vector4(tapUv.dx * 2 - 1, tapUv.dy * 2 - 1, ndcZ, 1);
+      inv.transform(v);
+      if (v.w.abs() < 1e-9) return null;
+      return vm.Vector3(v.x / v.w, v.y / v.w, v.z / v.w);
+    }
+
+    final nearPoint = unproject(0);
+    final farPoint = unproject(1);
+    if (nearPoint == null || farPoint == null) return null;
+
+    var bestT = double.infinity;
+    (int, Offset)? best;
+    for (var i = 0; i < _kSlots; i++) {
+      final card = i % kStageCardCount;
+      if (_textures[card] == null) continue;
+      final angle = _theta + i * (2 * math.pi / _kSlots);
+      // Only cards facing the camera accept presses.
+      if (math.cos(angle) < 0.05) continue;
+
+      final invModel = vm.Matrix4.copy(_cardModel(card, angle, time));
+      if (invModel.invert() == 0.0) continue;
+      final o = invModel.transform3(nearPoint.clone());
+      final q = invModel.transform3(farPoint.clone());
+      final d = q - o;
+      if (d.z.abs() < 1e-6) continue;
+      final t = -o.z / d.z; // along the near->far segment
+      if (t <= 0 || t >= bestT) continue;
+      final x = o.x + d.x * t;
+      final y = o.y + d.y * t;
+      if (x.abs() > 1 || y.abs() > 1) continue;
+      bestT = t;
+      best = (card, Offset((x + 1) / 2, (1 - y) / 2));
+    }
+    return best;
   }
 }

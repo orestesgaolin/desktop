@@ -81,6 +81,13 @@ cover-flow carousel: depth-tested, 4x MSAA, premultiplied-alpha blending,
 floor reflections, backside dimming. Poke a switch in the panel and the
 3D copy updates.
 
+The 3D copies are also **clickable**: a tap on the stage is unprojected
+(inverse view-projection ray vs. each front-facing card quad) into
+card-local UV, mapped to the real widget's on-screen rect, and dispatched
+as a synthetic pointer down/up through `GestureBinding` — so pressing the
+Follow button on the rotating 3D card presses the real button, and the
+new state flows back into the scene on the next capture.
+
 Gotcha this uncovered: after the first `toImage`, the context's
 `defaultColorFormat` can start returning `PixelFormat.unknown` (a
 wide-gamut snapshot format flutter_gpu can't map), which broke surfaces

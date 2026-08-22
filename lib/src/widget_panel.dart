@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -57,14 +58,40 @@ class _WidgetSourcePanelState extends State<WidgetSourcePanel>
       if (mounted) setState(() => _now = DateTime.now());
     });
     _captureTicker = createTicker((_) => _captureNext())..start();
+    widget.demo.onCardTap = _pressRealWidget;
   }
 
   @override
   void dispose() {
+    if (widget.demo.onCardTap == _pressRealWidget) {
+      widget.demo.onCardTap = null;
+    }
     _captureTicker.dispose();
     _progress.dispose();
     _clockTimer?.cancel();
     super.dispose();
+  }
+
+  int _syntheticPointer = 0x3f000000;
+
+  /// A tap on a 3D card maps back to the real widget: convert the card-local
+  /// fraction into this panel's on-screen coordinates and dispatch a real
+  /// pointer down/up pair through the normal gesture pipeline.
+  void _pressRealWidget(int index, Offset fraction) {
+    final renderObject =
+        _boundaryKeys[index].currentContext?.findRenderObject();
+    if (renderObject is! RenderRepaintBoundary || !renderObject.hasSize) {
+      return;
+    }
+    final topLeft = renderObject.localToGlobal(Offset.zero);
+    final position = topLeft +
+        Offset(fraction.dx * renderObject.size.width,
+            fraction.dy * renderObject.size.height);
+    final pointer = _syntheticPointer++;
+    GestureBinding.instance
+        .handlePointerEvent(PointerDownEvent(pointer: pointer, position: position));
+    GestureBinding.instance
+        .handlePointerEvent(PointerUpEvent(pointer: pointer, position: position));
   }
 
   Future<void> _captureNext() async {

@@ -50,6 +50,8 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
   bool _pointerDown = false;
   Offset _pendingDrag = Offset.zero;
   double _pendingScroll = 0;
+  double _dragDistance = 0;
+  Offset? _pendingTapUv;
 
   @override
   void initState() {
@@ -120,9 +122,11 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
         pointerDown: _pointerDown,
         dragDelta: _pendingDrag,
         scrollDelta: _pendingScroll,
+        tapUv: _pendingTapUv,
       );
       _pendingDrag = Offset.zero;
       _pendingScroll = 0;
+      _pendingTapUv = null;
 
       final surfaceFrame = surface.acquireNextFrame();
       final commandBuffer = gpu.gpuContext.createCommandBuffer();
@@ -192,12 +196,22 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
         onPointerDown: (e) {
           _pointerDown = true;
           _pointer = e.localPosition;
+          _dragDistance = 0;
         },
         onPointerMove: (e) {
           _pointer = e.localPosition;
           _pendingDrag += e.delta;
+          _dragDistance += e.delta.distance;
         },
-        onPointerUp: (_) => _pointerDown = false,
+        onPointerUp: (e) {
+          _pointerDown = false;
+          if (_dragDistance < 8 && !_size.isEmpty) {
+            _pendingTapUv = Offset(
+              (e.localPosition.dx / _size.width).clamp(0.0, 1.0),
+              (1 - e.localPosition.dy / _size.height).clamp(0.0, 1.0),
+            );
+          }
+        },
         onPointerCancel: (_) => _pointerDown = false,
         onPointerSignal: (e) {
           if (e is PointerScrollEvent) _pendingScroll += e.scrollDelta.dy;

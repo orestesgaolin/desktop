@@ -16,6 +16,7 @@ class FrameContext {
     required this.pointerDown,
     required this.dragDelta,
     required this.scrollDelta,
+    this.tapUv,
   });
 
   /// Per-frame bump allocator for uniform/vertex data. Reset by the surface
@@ -46,6 +47,10 @@ class FrameContext {
 
   /// Scroll wheel movement accumulated since the previous frame.
   final double scrollDelta;
+
+  /// Position of a completed tap (press + release with little movement)
+  /// since the previous frame, in uv space (y up). Null if none.
+  final Offset? tapUv;
 }
 
 /// Shared playback/quality state between the toolbar UI and the surface view.
