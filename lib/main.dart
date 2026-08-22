@@ -6,10 +6,12 @@ import 'package:marionette_flutter/marionette_flutter.dart';
 import 'src/demos/demo.dart';
 import 'src/demos/live.dart';
 import 'src/demos/registry.dart';
+import 'src/demos/widget_stage.dart';
 import 'src/frame.dart';
 import 'src/gpu_kit.dart';
 import 'src/live_editor.dart';
 import 'src/surface_view.dart';
+import 'src/widget_panel.dart';
 
 void main() {
   if (kDebugMode) {
@@ -154,7 +156,13 @@ class _HomeShellState extends State<HomeShell> {
                       Expanded(
                         child: Padding(
                           padding: EdgeInsets.fromLTRB(
-                              4, 0, demo is LiveShaderDemo ? 12 : 14, 14),
+                              4,
+                              0,
+                              demo is LiveShaderDemo ||
+                                      demo is WidgetStageDemo
+                                  ? 12
+                                  : 14,
+                              14),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(14),
                             child: Stack(
@@ -178,6 +186,8 @@ class _HomeShellState extends State<HomeShell> {
                         ),
                       ),
                       if (demo is LiveShaderDemo) LiveEditorPanel(demo: demo),
+                      if (demo is WidgetStageDemo)
+                        WidgetSourcePanel(demo: demo),
                     ],
                   ),
                 ),

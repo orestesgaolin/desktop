@@ -8,6 +8,7 @@ import 'fullscreen.dart';
 import 'live.dart';
 import 'particles.dart';
 import 'triangle.dart';
+import 'widget_stage.dart';
 
 List<GpuDemo> buildDemos() {
   return <GpuDemo>[
@@ -19,6 +20,7 @@ List<GpuDemo> buildDemos() {
     _metaballs(),
     _plasma(),
     _mandelbrot(),
+    WidgetStageDemo(),
     LiveShaderDemo(),
   ];
 }

@@ -6,6 +6,8 @@
   "CubeFragment": { "type": "fragment", "file": "shaders/cube.frag" },
   "ParticlesVertex": { "type": "vertex", "file": "shaders/particles.vert" },
   "ParticlesFragment": { "type": "fragment", "file": "shaders/particles.frag" },
+  "CardVertex": { "type": "vertex", "file": "shaders/card.vert" },
+  "CardFragment": { "type": "fragment", "file": "shaders/card.frag" },
   "PlasmaFragment": { "type": "fragment", "file": "shaders/plasma.frag" },
   "RaymarchFragment": { "type": "fragment", "file": "shaders/raymarch.frag" },
   "MandelbrotFragment": { "type": "fragment", "file": "shaders/mandelbrot.frag" },

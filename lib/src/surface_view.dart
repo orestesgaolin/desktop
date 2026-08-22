@@ -7,6 +7,7 @@ import 'package:flutter_gpu/gpu.dart' as gpu;
 
 import 'demos/demo.dart';
 import 'frame.dart';
+import 'gpu_kit.dart';
 
 /// Hosts a [GpuDemo]: owns the GPU image surface sized to the widget,
 /// drives a frame loop with a [Ticker], gathers pointer input, and paints
@@ -93,7 +94,8 @@ class _GpuSurfaceViewState extends State<GpuSurfaceView>
     try {
       var surface = _surface;
       if (surface == null) {
-        surface = _surface = gpu.gpuContext.createImageSurface(w, h);
+        surface = _surface =
+            gpu.gpuContext.createImageSurface(w, h, format: stableColorFormat());
       } else if (surface.width != w || surface.height != h) {
         surface.resize(w, h);
       }

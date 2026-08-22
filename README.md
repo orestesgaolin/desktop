@@ -19,6 +19,7 @@ impellerc-compiled GLSL — no Canvas, no CustomPaint drawing, no
 | Metaballs | Analytic 2D iso-surface with gradient shading (one ball follows the pointer) |
 | Plasma | Domain-warped oldschool plasma with cosine palettes |
 | Mandelbrot | Smooth escape-time fractal; drag to pan, scroll for anchored zoom |
+| Widget Stage | Real, live Flutter widgets captured as GPU textures and spun on a 3D carousel |
 | Live Editor | ShaderToy-style: type GLSL, ⌘⏎ compiles it at runtime and hot-swaps the pipeline |
 
 Toolbar: play/pause, time scale, and render-scale (50/75/100 % of native
@@ -62,6 +63,24 @@ flutter run -d macos
   fullscreen shader-art demos share a 3-vertex fullscreen-triangle
   pipeline and a common `FragInfo` uniform contract (resolution, pointer,
   time, 4 generic params).
+
+## Widget Stage
+
+Real Material widgets (switches, a button, an animated progress bar, a
+ticking clock) live in a side panel. One card per frame is snapshotted
+with `RepaintBoundary.toImage(pixelRatio: 2)` and wrapped **zero-copy**
+into a `gpu.Texture` via `Texture.fromImage`, then drawn as quads on a
+cover-flow carousel: depth-tested, 4x MSAA, premultiplied-alpha blending,
+floor reflections, backside dimming. Poke a switch in the panel and the
+3D copy updates.
+
+Gotcha this uncovered: after the first `toImage`, the context's
+`defaultColorFormat` can start returning `PixelFormat.unknown` (a
+wide-gamut snapshot format flutter_gpu can't map), which broke surfaces
+and MSAA attachments mid-session. Mitigations: formats are queried once
+and cached with fallbacks (`stableColorFormat`), the app opts out of wide
+gamut (`FLTEnableWideGamut=false`), and the capture path falls back to a
+CPU pixel copy when `fromImage` cannot wrap the snapshot.
 
 ## Live Editor
 

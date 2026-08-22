@@ -99,13 +99,18 @@ class CubeDemo extends GpuDemo {
   }
 
   void _ensureAttachments(int w, int h) {
-    if (_depth != null && _depth!.width == w && _depth!.height == h) return;
+    if (_depth != null &&
+        _depth!.width == w &&
+        _depth!.height == h &&
+        (!_msaa || _msaaColor != null)) {
+      return;
+    }
     final samples = _msaa ? 4 : 1;
     _depth = gpu.gpuContext.createTexture(
       gpu.StorageMode.deviceTransient,
       w,
       h,
-      format: gpu.gpuContext.defaultDepthStencilFormat,
+      format: stableDepthStencilFormat(),
       sampleCount: samples,
       enableShaderReadUsage: false,
     );
@@ -114,7 +119,7 @@ class CubeDemo extends GpuDemo {
             gpu.StorageMode.deviceTransient,
             w,
             h,
-            format: gpu.gpuContext.defaultColorFormat,
+            format: stableColorFormat(),
             sampleCount: 4,
             enableShaderReadUsage: false,
           )

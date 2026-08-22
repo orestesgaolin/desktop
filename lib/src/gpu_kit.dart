@@ -82,6 +82,36 @@ class UniformWriter {
   gpu.BufferView emplace(gpu.HostBuffer transients) => transients.emplace(data);
 }
 
+gpu.PixelFormat? _stableColor;
+gpu.PixelFormat? _stableDepthStencil;
+
+/// The context's default color format, queried once and cached.
+///
+/// The live getter can start returning [gpu.PixelFormat.unknown] after the
+/// engine renders a wide-gamut snapshot (RepaintBoundary.toImage on macOS),
+/// which flutter_gpu's enum cannot map. Caching the first good answer — with
+/// a Metal-friendly fallback — keeps surfaces and MSAA attachments working.
+gpu.PixelFormat stableColorFormat() {
+  var format = _stableColor;
+  if (format != null) return format;
+  format = gpu.gpuContext.defaultColorFormat;
+  if (format == gpu.PixelFormat.unknown) {
+    format = gpu.PixelFormat.b8g8r8a8UNormInt;
+  }
+  return _stableColor = format;
+}
+
+/// See [stableColorFormat]; same caching for the depth-stencil format.
+gpu.PixelFormat stableDepthStencilFormat() {
+  var format = _stableDepthStencil;
+  if (format != null) return format;
+  format = gpu.gpuContext.defaultDepthStencilFormat;
+  if (format == gpu.PixelFormat.unknown) {
+    format = gpu.PixelFormat.d32FloatS8UInt;
+  }
+  return _stableDepthStencil = format;
+}
+
 /// GL-style clip space (z in [-1, 1]) -> Metal/Impeller clip space
 /// (z in [0, 1]).
 final vm.Matrix4 kClipCorrection = vm.Matrix4(
