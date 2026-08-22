@@ -1,0 +1,27 @@
+name: gpu_playground
+description: "A Flutter GPU playground: a desktop gallery of shader and GPU rendering demos."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.14.0-147.0.dev
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_gpu:
+    sdk: flutter
+  flutter_gpu_shaders: ^0.5.2
+  marionette_flutter: ^0.6.0
+  vector_math: ^2.4.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  hooks: ^2.2.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - build/shaderbundles/playground.shaderbundle

@@ -1,0 +1,14 @@
+{
+  "FullscreenVertex": { "type": "vertex", "file": "shaders/fullscreen.vert" },
+  "TriangleVertex": { "type": "vertex", "file": "shaders/triangle.vert" },
+  "TriangleFragment": { "type": "fragment", "file": "shaders/triangle.frag" },
+  "CubeVertex": { "type": "vertex", "file": "shaders/cube.vert" },
+  "CubeFragment": { "type": "fragment", "file": "shaders/cube.frag" },
+  "ParticlesVertex": { "type": "vertex", "file": "shaders/particles.vert" },
+  "ParticlesFragment": { "type": "fragment", "file": "shaders/particles.frag" },
+  "PlasmaFragment": { "type": "fragment", "file": "shaders/plasma.frag" },
+  "RaymarchFragment": { "type": "fragment", "file": "shaders/raymarch.frag" },
+  "MandelbrotFragment": { "type": "fragment", "file": "shaders/mandelbrot.frag" },
+  "MetaballsFragment": { "type": "fragment", "file": "shaders/metaballs.frag" },
+  "OceanFragment": { "type": "fragment", "file": "shaders/ocean.frag" }
+}
