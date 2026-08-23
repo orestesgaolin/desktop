@@ -1,0 +1,512 @@
+import 'package:flutter/material.dart';
+
+import 'demos/demo.dart';
+import 'demos/registry.dart';
+import 'demos/widget_stage.dart';
+import 'frame.dart';
+import 'shader_editor.dart';
+import 'surface_view.dart';
+import 'palette.dart';
+import 'widget_panel.dart';
+
+const _bg = paper;
+const _panel = panel;
+const _panelHi = panelHi;
+const _accent = spruce;
+const _accent2 = clay;
+const _textDim = textDim;
+const _ink = ink;
+
+/// The gallery's own Material theme. The deck hosts the gallery inside its
+/// own `MaterialApp`, so the tile UI carries its theme with it.
+ThemeData galleryTheme() {
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.light,
+    scaffoldBackgroundColor: _bg,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: _accent,
+      brightness: Brightness.light,
+      surface: _panel,
+    ),
+    sliderTheme: const SliderThemeData(
+      trackHeight: 2,
+      thumbSize: WidgetStatePropertyAll(Size(14, 14)),
+      overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
+    ),
+  );
+}
+
+/// Verifies the runtime shader compiler is available before showing the
+/// gallery — every demo's GLSL is compiled through impellerc at runtime.
+class BootstrapScreen extends StatefulWidget {
+  const BootstrapScreen({super.key});
+
+  @override
+  State<BootstrapScreen> createState() => _BootstrapScreenState();
+}
+
+class _BootstrapScreenState extends State<BootstrapScreen> {
+  late final Future<String> _impellerc = GpuDemo.compiler.findImpellerc();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: _impellerc,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.gpp_bad_outlined, size: 44),
+                    const SizedBox(height: 16),
+                    Text('Shader compiler not found',
+                        style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    SelectableText(
+                      '${snapshot.error}\n\n'
+                      'All shaders are compiled at runtime with the Flutter '
+                      "SDK's impellerc. Point the IMPELLERC environment "
+                      'variable at the binary if it was not found '
+                      'automatically.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: _textDim, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        }
+        return const HomeShell();
+      },
+    );
+  }
+}
+
+class HomeShell extends StatefulWidget {
+  const HomeShell({super.key});
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> {
+  final List<GpuDemo> _demos = buildDemos();
+  final PlaybackController _playback = PlaybackController();
+  int _selected = 0;
+  bool _showEditor = false;
+
+  @override
+  void dispose() {
+    _playback.dispose();
+    super.dispose();
+  }
+
+  void _select(int index) {
+    setState(() {
+      _selected = index;
+      if (_demos[index].editorByDefault) _showEditor = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final demo = _demos[_selected];
+    final Widget? sidePanel = demo is WidgetStageDemo
+        ? _StagePanel(key: ObjectKey(demo), demo: demo)
+        : _showEditor && demo.shaders.isNotEmpty
+            ? ShaderEditorPanel(key: ObjectKey(demo), demo: demo)
+            : null;
+    return Scaffold(
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Sidebar(
+            demos: _demos,
+            selected: _selected,
+            onSelect: _select,
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                _TopBar(
+                  demo: demo,
+                  playback: _playback,
+                  showEditor: _showEditor,
+                  onToggleEditor: demo is WidgetStageDemo || demo.shaders.isEmpty
+                      ? null
+                      : () => setState(() => _showEditor = !_showEditor),
+                ),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                              4, 0, sidePanel != null ? 12 : 14, 14),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                const ColoredBox(color: Color(0xFFE9E6E0)),
+                                if (demo is WidgetHostedDemo)
+                                  demo.buildView(context, _playback)
+                                else
+                                  GpuSurfaceView(
+                                    demo: demo,
+                                    playback: _playback,
+                                  ),
+                                if (demo.hint.isNotEmpty)
+                                  Positioned(
+                                    left: 14,
+                                    bottom: 12,
+                                    child: _HintChip(text: demo.hint),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      ?sidePanel,
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Widget Stage side area: the live widgets and the GLSL editor share one
+/// panel, switched by tabs (both stay alive across switches).
+class _StagePanel extends StatefulWidget {
+  const _StagePanel({super.key, required this.demo});
+
+  final WidgetStageDemo demo;
+
+  @override
+  State<_StagePanel> createState() => _StagePanelState();
+}
+
+class _StagePanelState extends State<_StagePanel> {
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 460,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 0, 14, 8),
+            child: SegmentedButton<int>(
+              showSelectedIcon: false,
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
+              ),
+              segments: const [
+                ButtonSegment(value: 0, label: Text('Widgets')),
+                ButtonSegment(value: 1, label: Text('GLSL')),
+              ],
+              selected: {_tab},
+              onSelectionChanged: (s) => setState(() => _tab = s.first),
+            ),
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _tab,
+              children: [
+                WidgetSourcePanel(demo: widget.demo, width: null),
+                ShaderEditorPanel(demo: widget.demo, width: null),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Sidebar extends StatelessWidget {
+  const _Sidebar({
+    required this.demos,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<GpuDemo> demos;
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 264,
+      color: _panel,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [_accent, _accent2],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.memory,
+                      size: 20, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('GPU Playground',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700)),
+                    Text('Flutter GPU · Impeller',
+                        style: TextStyle(fontSize: 11, color: _textDim)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              itemCount: demos.length,
+              itemBuilder: (context, i) => _DemoTile(
+                demo: demos[i],
+                selected: i == selected,
+                onTap: () => onSelect(i),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'All pixels on this screen are rendered by '
+              'package:flutter_gpu render passes.',
+              style: TextStyle(fontSize: 10.5, color: _textDim, height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DemoTile extends StatelessWidget {
+  const _DemoTile({
+    required this.demo,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final GpuDemo demo;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Material(
+        color: selected ? _panelHi : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected
+                    ? _accent.withValues(alpha: 0.45)
+                    : Colors.transparent,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(demo.icon,
+                    size: 18, color: selected ? _accent : _textDim),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(demo.name,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight:
+                                selected ? FontWeight.w600 : FontWeight.w500,
+                          )),
+                      Text(demo.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 10.5, color: _textDim)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.demo,
+    required this.playback,
+    required this.showEditor,
+    this.onToggleEditor,
+  });
+
+  final GpuDemo demo;
+  final PlaybackController playback;
+  final bool showEditor;
+  final VoidCallback? onToggleEditor;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 58,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(demo.name,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w700)),
+                  Text(demo.subtitle,
+                      style: const TextStyle(fontSize: 11, color: _textDim)),
+                ],
+              ),
+            ),
+            ValueListenableBuilder<String>(
+              valueListenable: playback.stats,
+              builder: (context, stats, _) => Text(
+                stats,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _accent,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            ListenableBuilder(
+              listenable: playback,
+              builder: (context, _) => Row(
+                children: [
+                  SegmentedButton<double>(
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      textStyle:
+                          WidgetStatePropertyAll(TextStyle(fontSize: 10.5)),
+                    ),
+                    segments: const [
+                      ButtonSegment(value: 0.5, label: Text('50%')),
+                      ButtonSegment(value: 0.75, label: Text('75%')),
+                      ButtonSegment(value: 1.0, label: Text('100%')),
+                    ],
+                    selected: {playback.renderScale},
+                    onSelectionChanged: (s) => playback.renderScale = s.first,
+                  ),
+                  const SizedBox(width: 10),
+                  const Icon(Icons.speed, size: 15, color: _textDim),
+                  SizedBox(
+                    width: 110,
+                    child: Slider(
+                      value: playback.speed,
+                      min: 0,
+                      max: 2.5,
+                      onChanged: (v) => playback.speed = v,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: playback.paused ? 'Play' : 'Pause',
+                    onPressed: () => playback.paused = !playback.paused,
+                    icon: Icon(
+                      playback.paused
+                          ? Icons.play_arrow_rounded
+                          : Icons.pause_rounded,
+                      size: 22,
+                    ),
+                  ),
+                  if (onToggleEditor != null)
+                    IconButton(
+                      tooltip: showEditor
+                          ? 'Hide shader editor'
+                          : 'Edit this demo\'s shaders',
+                      onPressed: onToggleEditor,
+                      isSelected: showEditor,
+                      icon: Icon(
+                        Icons.data_object,
+                        size: 19,
+                        color: showEditor ? _accent : null,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HintChip extends StatelessWidget {
+  const _HintChip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: _ink.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(text,
+          style: const TextStyle(fontSize: 11, color: Color(0xFFF2F0EA))),
+    );
+  }
+}

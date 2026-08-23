@@ -1,11 +1,61 @@
 # GPU Playground
 
-A macOS desktop gallery of GPU rendering demos built directly on
+A macOS desktop **presentation** built with
+[flutter_deck](https://pub.dev/packages/flutter_deck), whose eighth slide
+opens out into a live 3D landscape and lands on a gallery of GPU
+rendering demos built directly on
 [Flutter GPU](https://github.com/flutter/flutter/blob/master/engine/src/flutter/docs/impeller/Flutter-GPU.md)
 (`package:flutter_gpu`), Flutter's low-level Impeller graphics API.
-Every pixel in the viewport comes from hand-written render passes and
-impellerc-compiled GLSL — no Canvas, no CustomPaint drawing, no
-`FragmentProgram`.
+Every pixel in the gallery's viewport comes from hand-written render
+passes and impellerc-compiled GLSL — no Canvas, no CustomPaint drawing,
+no `FragmentProgram`.
+
+## The deck
+
+`lib/src/deck/` is an ordinary flutter_deck presentation: 13 slides in
+one quiet Scandinavian layout, currently carrying lorem ipsum so the
+shape can be rehearsed before the content exists. Arrow keys drive it,
+`.` opens the slide drawer.
+
+| # | Slide |
+| --- | --- |
+| 1–7 | Ordinary paper slides (title, prose, statement, stepped bullets, quote) |
+| **8** | **The flyover** — two steps: a paper slide, then the 13-second flight |
+| **9** | **The GPU gallery** — the demo app below, landed on as a slide |
+| 10–13 | Ordinary paper slides again |
+
+### Slide 8: the flyover
+
+Slide 8 looks like every other slide in the deck. It is not: the paper is
+a wash over a live `flutter_scene` view parked head-on against a monolith
+standing in a forest clearing, framed so the panel covers the viewport
+exactly. Pressing → lifts the wash and flies the camera out of the
+clearing, banking over the treeline, low across a lake, up onto a plateau
+and square against a second panel in front of a glass-and-concrete
+pavilion — where the wash returns, so advancing to slide 9 is seamless.
+
+The landscape is generated, not authored: a `FastNoiseLite` heightfield
+with lakes carved into it, ~2 600 instanced spruces and birches in two
+draw calls, 700 instanced boulders, and a pavilion assembled from
+primitives (`lib/src/flyover/world.dart`). The camera runs a Catmull-Rom
+spline re-parametrised by arc length, so it holds a steady speed
+regardless of waypoint spacing, banks into its own turns, and opens the
+lens through the cruise (`lib/src/flyover/camera_path.dart`). Measured at
+a locked **120 fps** through the whole flight on a ProMotion panel, in a
+debug build, with cascaded shadows, GTAO, screen-space reflections, fog
+and bloom on.
+
+Two traps worth knowing, both of which cost a debugging round here:
+
+- Assigning `scene.environmentSettings` applies the *whole* snapshot,
+  including its own (null) `skybox`, `skyEnvironment` and `sunLight` — so
+  setting the sky on the scene before it silently wipes it out. Pass the
+  sky bindings **inside** `EnvironmentSettings`.
+- `SceneView(warmUp: true)` gates the view behind a reveal that never
+  fires in this setup, leaving the slide blank.
+
+`GPU_FLYOVER_CAPTURE=1` drops the dithered screen-space effects, whose
+noise inflates a captured frame past what screenshot tooling carries.
 
 ## Demos
 
@@ -63,6 +113,9 @@ fvm use master          # or make sure `flutter` is the master channel
 flutter run -d macos
 ```
 
+The app opens on slide 1 of the deck. The gallery described below is
+slide 9; everything in it works exactly as it did standalone.
+
 ## How it works
 
 - `shaders/*.vert|frag` — Impeller-dialect GLSL, bundled as plain text
@@ -77,6 +130,13 @@ flutter run -d macos
 - `lib/src/surface_view.dart` — hosts a `GpuImageSurface`: each Ticker
   tick acquires a frame texture, lets the active demo encode its render
   pass(es), presents, and paints `surface.currentImage`.
+- `lib/src/deck/` — the presentation: `deck_app.dart` (theme + slide
+  list), `slides.dart` (one class per slide kind), `page.dart` (the
+  shared slide layout and type ramp).
+- `lib/src/flyover/` — `world.dart` (the procedural landscape, built once
+  at launch so slide 8 has nothing left to do), `camera_path.dart` (the
+  flight), `flyover_view.dart` (the widget, the wash, and the step wiring).
+- `lib/src/gallery.dart` — the demo gallery shell, hosted by slide 9.
 - `lib/src/demos/` — one class per demo. 3D demos build their own
   pipelines, vertex/index buffers, and depth/MSAA attachments; the
   fullscreen shader-art demos share a 3-vertex fullscreen-triangle
