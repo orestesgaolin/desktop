@@ -138,9 +138,22 @@ class FlyoverWorld {
     _scatterBoulders();
     _buildMonolith();
     _buildPavilion();
+    _buildFlock();
+    await _buildRoofSign();
 
     _built = true;
   }
+
+  /// Advances everything in the world that moves. Driven from the view's
+  /// `SceneView.onTick`, so the scene animates only while it is on screen.
+  void tick(double dt) {
+    _time += dt;
+    for (var i = 0; i < _birds.length; i++) {
+      _birds[i].place(i, _time, _parts);
+    }
+  }
+
+  double _time = 0;
 
   void _applyLook() {
     // Pale Nordic daylight: a low raking sun, cool zenith, warm haze at the
@@ -489,6 +502,11 @@ class FlyoverWorld {
         vm.Vector3(centre.x, base - 1.4, centre.z + 0.6));
   }
 
+  Material _signBoard() => PhysicallyBasedMaterial()
+    ..baseColorFactor = linear(const Color(0xFF34383A))
+    ..metallicFactor = 0.2
+    ..roughnessFactor = 0.55;
+
   Material _concrete() => PhysicallyBasedMaterial()
     ..baseColorFactor = linear(const Color(0xFFE7E3DA))
     ..metallicFactor = 0.0
@@ -598,6 +616,126 @@ class FlyoverWorld {
         vm.Vector3(dock.x, podiumTop + 1.0, dock.z));
   }
 
+  // ------------------------------------------------------------ roof sign
+
+  /// The Flutter & Friends logo, standing on the pavilion's upper roof and
+  /// facing the approach.
+  ///
+  /// Unlit and alpha-blended: the artwork is a sticker with its own white
+  /// keyline, so shading it would only muddy it, and it has to stay legible
+  /// against a bright sky.
+  Future<void> _buildRoofSign() async {
+    const height = 18.0;
+    const width = height * 1.1716; // the artwork's aspect
+    // High enough on its posts to clear the landing panel on the approach —
+    // and still behind it at the dock, where the panel fills the frame.
+    final centre = vm.Vector3(-8, 49.0, 219);
+
+    final Texture2D logo;
+    try {
+      // The asset carries a transparent margin, which is why no clamped
+      // address mode is set here: the sampler's default wrap only ever
+      // reaches those empty pixels. (Passing one is awkward anyway — the
+      // analyzer resolves flutter_scene's conditional gpu export to its stub,
+      // so `gpu.SamplerAddressMode` is a different type to it.)
+      logo = await Texture2D.fromAsset(
+        'assets/images/flutter-and-friends.png',
+      );
+    } catch (_) {
+      // A missing logo is not worth losing the landscape over.
+      return;
+    }
+
+    // Unlit is not the same as untouched: the artwork still goes through
+    // exposure and ACES, which drains it. The same gain the dock panels use
+    // puts the blues back.
+    final sign = UnlitMaterial(colorTexture: logo)
+      ..alphaMode = AlphaMode.blend
+      ..baseColorFactor = vm.Vector4(_panelGain, _panelGain, _panelGain, 1);
+
+    scene.add(Node(mesh: Mesh(_signQuad(width, height), sign))
+      ..position = centre);
+
+    // A dark backing board: the artwork is a sticker with a white keyline,
+    // which disappears against concrete and pops against charcoal. It also
+    // gives the sign a back, so it still reads as an object from behind.
+    _box(width + 1.4, height + 1.4, 0.35, _signBoard(),
+        centre + vm.Vector3(0, 0, 0.3));
+    for (final x in <double>[-width / 3, width / 3]) {
+      _box(0.55, 12, 0.55, _steel(),
+          vm.Vector3(centre.x + x, centre.y - height / 2 - 6.0, centre.z + 0.3));
+    }
+  }
+
+  /// A quad in the XY plane facing −Z, with the texture the right way up.
+  ///
+  /// Authored by hand rather than rotating a [PlaneGeometry], because that
+  /// leaves the artwork's orientation up to the primitive's UV convention.
+  MeshGeometry _signQuad(double width, double height) {
+    final builder = GeometryBuilder(deduplicate: false);
+    final hw = width / 2;
+    final hh = height / 2;
+    builder.normal(vm.Vector3(0, 0, -1));
+
+    int corner(double x, double y, double u, double v) {
+      builder.texCoord(vm.Vector2(u, v));
+      return builder.addVertex(vm.Vector3(x, y, 0));
+    }
+
+    final tl = corner(-hw, hh, 0, 0);
+    final tr = corner(hw, hh, 1, 0);
+    final br = corner(hw, -hh, 1, 1);
+    final bl = corner(-hw, -hh, 0, 1);
+    builder
+      ..addTriangle(tl, br, tr)
+      ..addTriangle(tl, bl, br);
+    return builder.build();
+  }
+
+  // ---------------------------------------------------------------- the flock
+
+  final List<_Dash> _birds = [];
+  _DashParts? _parts;
+
+  /// A flock of simplified Dashes, three loose circles over the places the
+  /// flight passes: the clearing, the lake, and the pavilion.
+  ///
+  /// Every bird is the same six meshes drawn instanced — body, belly, beak,
+  /// tail, wings, eyes — so the whole flock costs six draw calls no matter how
+  /// many there are, and [tick] just rewrites the transforms.
+  void _buildFlock() {
+    final rng = math.Random(505);
+    final parts = _DashParts();
+    _parts = parts;
+
+    void flock({
+      required vm.Vector3 centre,
+      required double radius,
+      required int count,
+      required double scale,
+    }) {
+      for (var i = 0; i < count; i++) {
+        _birds.add(_Dash(
+          centre: centre,
+          radius: radius * (0.55 + rng.nextDouble() * 0.7),
+          lift: (rng.nextDouble() - 0.5) * 11,
+          speed: (0.16 + rng.nextDouble() * 0.12) * (rng.nextBool() ? 1 : -1),
+          phase: rng.nextDouble() * math.pi * 2,
+          scale: scale * (0.8 + rng.nextDouble() * 0.5),
+          bobRate: 0.7 + rng.nextDouble() * 0.5,
+          flapRate: 5.0 + rng.nextDouble() * 2.5,
+        ));
+        parts.reserve();
+      }
+    }
+
+    flock(centre: vm.Vector3(30, 36, -12), radius: 32, count: 7, scale: 1.15);
+    flock(centre: vm.Vector3(-16, 20, 100), radius: 48, count: 9, scale: 1.30);
+    flock(centre: vm.Vector3(14, 46, 216), radius: 36, count: 8, scale: 1.15);
+
+    parts.attach(scene);
+  }
+
   // ------------------------------------------------------- geometry helpers
 
   /// A closed cone between [bottom] and [top]. A [top] below [bottom] gives an
@@ -680,4 +818,172 @@ vm.Vector4 _scaled(vm.Vector4 color, double k) =>
 double _smoothstep(double edge0, double edge1, double x) {
   final t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
   return t * t * (3 - 2 * t);
+}
+
+
+/// One bird's flight: a slow circle, a lazy bob, and a wing beat.
+class _Dash {
+  _Dash({
+    required this.centre,
+    required this.radius,
+    required this.lift,
+    required this.speed,
+    required this.phase,
+    required this.scale,
+    required this.bobRate,
+    required this.flapRate,
+  });
+
+  final vm.Vector3 centre;
+  final double radius;
+  final double lift;
+  final double speed;
+  final double phase;
+  final double scale;
+  final double bobRate;
+  final double flapRate;
+
+  /// Rewrites this bird's instance transforms for time [t].
+  void place(int index, double t, _DashParts? parts) {
+    if (parts == null) return;
+
+    final angle = phase + t * speed;
+    final position = vm.Vector3(
+      centre.x + math.cos(angle) * radius,
+      centre.y + lift + math.sin(t * bobRate + phase) * 1.7,
+      centre.z + math.sin(angle) * radius,
+    );
+
+    // Heading is the tangent of the circle; the lean into it is constant,
+    // which is all a bird at this distance needs to read as banking.
+    final yaw = math.atan2(-math.sin(angle) * speed, math.cos(angle) * speed);
+    final body = vm.Matrix4.translation(position)
+      ..rotateY(yaw)
+      ..rotateZ(speed > 0 ? -0.22 : 0.22)
+      ..scaleByDouble(scale, scale, scale, 1.0);
+
+    parts.place(index, body, math.sin(t * flapRate + phase) * 0.68);
+  }
+}
+
+/// The instanced meshes every Dash is drawn from, plus the local placement of
+/// each part on the bird.
+class _DashParts {
+  _DashParts() {
+    final ball = IcosphereGeometry(radius: 0.5, subdivisions: 1);
+    final cone = CylinderGeometry(
+      bottomRadius: 0.5,
+      topRadius: 0.0,
+      height: 1,
+      radialSegments: 6,
+    );
+
+    body = _mesh(ball, const Color(0xFF54C5F8), 0.55);
+    belly = _mesh(ball, const Color(0xFFE4F5FE), 0.7);
+    beak = _mesh(cone, const Color(0xFFFFC24B), 0.5);
+    tail = _mesh(cone, const Color(0xFF3AAEE8), 0.6);
+    wing = _mesh(_dashWingGeometry(), const Color(0xFF3AAEE8), 0.6);
+    eye = _mesh(ball, const Color(0xFF23262A), 0.35);
+  }
+
+  late final InstancedMesh body;
+  late final InstancedMesh belly;
+  late final InstancedMesh beak;
+  late final InstancedMesh tail;
+  late final InstancedMesh wing;
+  late final InstancedMesh eye;
+
+  static InstancedMesh _mesh(Geometry geometry, Color color, double roughness) {
+    return InstancedMesh(
+      geometry: geometry,
+      material: PhysicallyBasedMaterial()
+        ..baseColorFactor = linear(color)
+        ..metallicFactor = 0.0
+        ..roughnessFactor = roughness,
+      cullInstances: true,
+    );
+  }
+
+  // Local placement of each part on a bird facing +Z. The cones are modelled
+  // along +Y, so they are turned a quarter turn to point along the body.
+  static final vm.Matrix4 _body =
+      vm.Matrix4.identity()..scaleByDouble(1.10, 1.05, 1.26, 1.0);
+  static final vm.Matrix4 _belly =
+      vm.Matrix4.translation(vm.Vector3(0, -0.13, 0.10))
+        ..scaleByDouble(0.98, 0.86, 1.04, 1.0);
+  static final vm.Matrix4 _beak =
+      vm.Matrix4.translation(vm.Vector3(0, -0.02, 0.62))
+        ..rotateX(math.pi / 2)
+        ..scaleByDouble(0.20, 0.36, 0.20, 1.0);
+  static final vm.Matrix4 _tail =
+      vm.Matrix4.translation(vm.Vector3(0, 0.08, -0.60))
+        ..rotateX(-math.pi / 2)
+        ..scaleByDouble(0.40, 0.46, 0.14, 1.0);
+  static final vm.Matrix4 _eyeLeft =
+      vm.Matrix4.translation(vm.Vector3(-0.22, 0.14, 0.48))
+        ..scaleByDouble(0.17, 0.17, 0.17, 1.0);
+  static final vm.Matrix4 _eyeRight =
+      vm.Matrix4.translation(vm.Vector3(0.22, 0.14, 0.48))
+        ..scaleByDouble(0.17, 0.17, 0.17, 1.0);
+  static final vm.Matrix4 _wingRoot =
+      vm.Matrix4.translation(vm.Vector3(0.40, 0.10, -0.02));
+  // The left wing is the right one mirrored; InstancedMesh tracks the flipped
+  // winding from the transform's determinant, so it still shades correctly.
+  static final vm.Matrix4 _wingMirror =
+      vm.Matrix4.identity()..scaleByDouble(-1, 1, 1, 1.0);
+
+  /// Adds slots for one more bird. Called once per bird at build time so the
+  /// per-frame path only ever rewrites transforms.
+  void reserve() {
+    final identity = vm.Matrix4.identity();
+    body.addInstance(identity);
+    belly.addInstance(identity);
+    beak.addInstance(identity);
+    tail.addInstance(identity);
+    eye.addInstance(identity);
+    eye.addInstance(identity);
+    wing.addInstance(identity);
+    wing.addInstance(identity);
+  }
+
+  void place(int index, vm.Matrix4 bodyTransform, double flap) {
+    body.setInstanceTransform(index, bodyTransform.multiplied(_body));
+    belly.setInstanceTransform(index, bodyTransform.multiplied(_belly));
+    beak.setInstanceTransform(index, bodyTransform.multiplied(_beak));
+    tail.setInstanceTransform(index, bodyTransform.multiplied(_tail));
+    eye.setInstanceTransform(index * 2, bodyTransform.multiplied(_eyeLeft));
+    eye.setInstanceTransform(index * 2 + 1, bodyTransform.multiplied(_eyeRight));
+
+    final beat = vm.Matrix4.identity()..rotateZ(flap);
+    final right = bodyTransform.multiplied(_wingRoot).multiplied(beat);
+    wing.setInstanceTransform(index * 2, right);
+    wing.setInstanceTransform(index * 2 + 1, right.multiplied(_wingMirror));
+  }
+
+  void attach(Scene scene) {
+    for (final mesh in <InstancedMesh>[body, belly, beak, tail, wing, eye]) {
+      scene.add(Node()..addComponent(InstancedMeshComponent(mesh)));
+    }
+  }
+}
+
+/// One wing: a flat tapered blade reaching out along +X from the shoulder,
+/// emitted front and back so it is visible whichever way the bird banks.
+MeshGeometry _dashWingGeometry() {
+  final builder = GeometryBuilder(deduplicate: false);
+  const outline = <List<double>>[
+    [0.02, 0.34],
+    [1.05, 0.13],
+    [1.02, -0.17],
+    [0.02, -0.40],
+  ];
+  final front = <int>[
+    for (final p in outline) builder.addVertex(vm.Vector3(p[0], 0, p[1])),
+  ];
+  builder
+    ..addTriangle(front[0], front[1], front[2])
+    ..addTriangle(front[0], front[2], front[3])
+    ..addTriangle(front[0], front[2], front[1])
+    ..addTriangle(front[0], front[3], front[2]);
+  return builder.build();
 }

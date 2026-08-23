@@ -21,6 +21,7 @@ class FlyoverView extends StatefulWidget {
     super.key,
     required this.playing,
     this.dockOverlay,
+    this.onLanded,
   });
 
   /// Whether the flight is running. False parks the camera back on dock A.
@@ -29,6 +30,11 @@ class FlyoverView extends StatefulWidget {
   /// Slide content drawn on the paper wash while docked. It fades out as soon
   /// as the flight starts.
   final Widget? dockOverlay;
+
+  /// Called once the camera has settled on the landing panel and the wash has
+  /// closed over it. The deck advances itself from here, so the flight runs to
+  /// the next slide without a keypress.
+  final VoidCallback? onLanded;
 
   @override
   State<FlyoverView> createState() => _FlyoverViewState();
@@ -41,7 +47,21 @@ class _FlyoverViewState extends State<FlyoverView>
   late final AnimationController _flight = AnimationController(
     vsync: this,
     duration: FlightPath.duration,
-  );
+  )..addStatusListener(_onFlightStatus);
+
+  /// Guards the hand-off: the status listener can fire again if the presenter
+  /// steps back and replays, and the deck must not be advanced twice.
+  bool _handedOff = false;
+
+  void _onFlightStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed || _handedOff) return;
+    _handedOff = true;
+    // A beat on the landing frame before the deck moves. The wash is already
+    // full paper by now, so the slide change itself is invisible.
+    Future<void>.delayed(const Duration(milliseconds: 450), () {
+      if (mounted) widget.onLanded?.call();
+    });
+  }
 
   FlightPath? _path;
   bool _ready = false;
@@ -63,6 +83,7 @@ class _FlyoverViewState extends State<FlyoverView>
     super.didUpdateWidget(oldWidget);
     if (widget.playing == oldWidget.playing) return;
     if (widget.playing) {
+      _handedOff = false;
       _flight.forward(from: 0);
     } else {
       _flight.value = 0;
@@ -111,6 +132,7 @@ class _FlyoverViewState extends State<FlyoverView>
                 // the view mounts on step 1 behind the opaque wash, so the
                 // pipelines are warm well before the flight starts.
                 cameraBuilder: (_) => path.shotAt(_flight.value).toCamera(),
+                onTick: (_, dt) => _world.tick(dt),
               ),
             AnimatedBuilder(
               animation: _flight,

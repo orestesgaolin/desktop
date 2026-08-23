@@ -30,20 +30,32 @@ Slide 8 looks like every other slide in the deck. It is not: the paper is
 a wash over a live `flutter_scene` view parked head-on against a monolith
 standing in a forest clearing, framed so the panel covers the viewport
 exactly. Pressing → lifts the wash and flies the camera out of the
-clearing, banking over the treeline, low across a lake, up onto a plateau
-and square against a second panel in front of a glass-and-concrete
-pavilion — where the wash returns, so advancing to slide 9 is seamless.
+clearing for twenty seconds, banking over the treeline, low across a lake,
+up onto a plateau and square against a second panel in front of a
+glass-and-concrete pavilion. The wash returns as it settles, and the deck
+advances itself to slide 9 — the flight runs to the gallery with no second
+keypress. (→ during the flight cuts it short and goes there directly.)
 
 The landscape is generated, not authored: a `FastNoiseLite` heightfield
 with lakes carved into it, ~2 600 instanced spruces and birches in two
-draw calls, 700 instanced boulders, and a pavilion assembled from
-primitives (`lib/src/flyover/world.dart`). The camera runs a Catmull-Rom
-spline re-parametrised by arc length, so it holds a steady speed
-regardless of waypoint spacing, banks into its own turns, and opens the
-lens through the cruise (`lib/src/flyover/camera_path.dart`). Measured at
-a locked **120 fps** through the whole flight on a ProMotion panel, in a
-debug build, with cascaded shadows, GTAO, screen-space reflections, fog
-and bloom on.
+draw calls, 700 instanced boulders, a pavilion assembled from primitives
+with the Flutter & Friends logo on a rooftop sign, and a flock of
+simplified Dashes circling over the clearing, the lake and the pavilion
+(`lib/src/flyover/world.dart`). Each bird is the same six instanced meshes
+— body, belly, beak, tail, wings, eyes — so the whole flock is six draw
+calls however many there are, and the per-frame work is rewriting their
+transforms.
+
+The camera runs a Catmull-Rom spline re-parametrised by arc length, so it
+holds a steady speed regardless of waypoint spacing, banks into its own
+turns, opens the lens through the cruise, and carries a slow hand-flown
+wander that fades to nothing at both docks so the panels still frame
+exactly (`lib/src/flyover/camera_path.dart`). The bank is baked once from
+the path's turn *rate* rather than derived per frame from the curvature of
+the sampled positions — that second difference is mostly sampling noise,
+and it reads as a shiver. Measured at a locked **120 fps** through the
+whole flight on a ProMotion panel, in a debug build, with cascaded
+shadows, GTAO, screen-space reflections, fog and bloom on.
 
 Two traps worth knowing, both of which cost a debugging round here:
 

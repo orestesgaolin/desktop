@@ -313,9 +313,9 @@ class FlyoverSlide extends FlutterDeckSlideWidget {
             showProgress: false,
             transition: FlutterDeckTransition.fade(),
             speakerNotes:
-                'Press → once to launch the flight (13 s). It lands on the '
-                'pavilion panel and holds there; press → again for the '
-                'gallery.',
+                'Press → once to launch the flight (20 s). It lands on the '
+                'pavilion panel and moves to the gallery on its own — no '
+                'second keypress. Press → during the flight to cut it short.',
           ),
         );
 
@@ -326,6 +326,13 @@ class FlyoverSlide extends FlutterDeckSlideWidget {
         builder: (context, step) => FlyoverView(
           playing: step >= 2,
           dockOverlay: const _FlyoverDock(),
+          // Not `next()`: this slide has steps, and next() would advance the
+          // step rather than the slide. The landing always hands off to the
+          // slide after this one.
+          onLanded: () {
+            final deck = context.flutterDeck;
+            deck.goToSlide(deck.slideNumber + 1);
+          },
         ),
       ),
     );

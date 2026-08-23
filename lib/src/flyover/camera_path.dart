@@ -45,12 +45,13 @@ class FlightPath {
   FlightPath({required this.aspect}) {
     _controls = _controlPoints(Landmarks.dockDistance(aspect));
     _buildArcTable();
+    _buildRollTable();
   }
 
   final double aspect;
 
   /// Wall-clock length of the flight.
-  static const Duration duration = Duration(milliseconds: 13000);
+  static const Duration duration = Duration(milliseconds: 20000);
 
   /// Lens width at the fastest part of the cruise. Wider than the dock lens,
   /// which is what makes the middle of the flight feel quick.
@@ -59,8 +60,13 @@ class FlightPath {
   late final List<vm.Vector3> _controls;
   late final List<double> _arc; // cumulative length at each table sample
   late final List<double> _param; // spline parameter at each table sample
+  late final List<double> _roll; // baked bank angle, sampled in u
 
-  static const int _samples = 700;
+  /// Arc-length table resolution. The camera reads its position through this
+  /// table, so a coarse one shows up as a shiver in the bank (which is derived
+  /// from how the heading changes) long before it is visible in the motion.
+  static const int _samples = 1400;
+  static const int _rollSamples = 320;
 
   List<vm.Vector3> _controlPoints(double dock) {
     final a = Landmarks.dockA;
@@ -142,6 +148,69 @@ class FlightPath {
     return _spline(_param[lo - 1] + (_param[lo] - _param[lo - 1]) * f);
   }
 
+  // ------------------------------------------------------------------- bank
+
+  /// Bakes the bank angle once, from how fast the heading turns.
+  ///
+  /// Deriving the bank per frame from a second difference of sampled positions
+  /// reads as a shiver: the arc-length table is piecewise linear, so its
+  /// curvature is mostly sampling noise. Turn *rate* is a first difference —
+  /// far better behaved — and smoothing the baked curve removes what is left.
+  /// What the frame reads is then a fixed table.
+  void _buildRollTable() {
+    final heading = List<double>.filled(_rollSamples, 0);
+    var previous = 0.0;
+    for (var i = 0; i < _rollSamples; i++) {
+      final u = i / (_rollSamples - 1);
+      final ahead = pointAt(u + 0.006);
+      final behind = pointAt(u - 0.006);
+      var angle = math.atan2(ahead.x - behind.x, ahead.z - behind.z);
+      // Unwrap, so a heading crossing ±π does not read as a violent turn.
+      if (i > 0) {
+        while (angle - previous > math.pi) {
+          angle -= 2 * math.pi;
+        }
+        while (previous - angle > math.pi) {
+          angle += 2 * math.pi;
+        }
+      }
+      previous = angle;
+      heading[i] = angle;
+    }
+
+    final du = 1 / (_rollSamples - 1);
+    var roll = List<double>.generate(_rollSamples, (i) {
+      final lo = math.max(i - 1, 0);
+      final hi = math.min(i + 1, _rollSamples - 1);
+      final span = (hi - lo) * du;
+      final rate = span > 0 ? (heading[hi] - heading[lo]) / span : 0.0;
+      return (rate * 0.05).clamp(-0.38, 0.38);
+    });
+
+    // Three box passes: enough to take the last of the sampling grain out
+    // without flattening the real turns.
+    for (var pass = 0; pass < 3; pass++) {
+      roll = List<double>.generate(_rollSamples, (i) {
+        var sum = 0.0;
+        var count = 0;
+        for (var k = -3; k <= 3; k++) {
+          final j = i + k;
+          if (j < 0 || j >= _rollSamples) continue;
+          sum += roll[j];
+          count++;
+        }
+        return sum / count;
+      });
+    }
+    _roll = roll;
+  }
+
+  double _rollAt(double u) {
+    final x = u.clamp(0.0, 1.0) * (_rollSamples - 1);
+    final i = x.floor().clamp(0, _rollSamples - 2);
+    return _roll[i] + (_roll[i + 1] - _roll[i]) * (x - i);
+  }
+
   // ------------------------------------------------------------------ shots
 
   /// Maps the animation's linear 0..1 onto distance along the curve: a slow
@@ -150,6 +219,20 @@ class FlightPath {
     final c = x.clamp(0.0, 1.0);
     final smoother = c * c * c * (c * (c * 6 - 15) + 10);
     return 0.30 * c + 0.70 * smoother;
+  }
+
+  /// A slow, deterministic wander — the camera ship is hand-flown, not on
+  /// rails. Two detuned sines per axis, so the loop never reads as periodic.
+  /// [seconds] is wall-clock into the flight, so the wobble does not speed up
+  /// where the path does.
+  static vm.Vector3 _wander(double seconds, double phase, double gain) {
+    return vm.Vector3(
+      math.sin(seconds * 0.61 + phase) * 0.62 +
+          math.sin(seconds * 1.43 + phase * 2.1) * 0.24,
+      math.sin(seconds * 0.47 + phase + 2.2) * 0.48 +
+          math.sin(seconds * 1.19 + phase * 1.7) * 0.19,
+      math.sin(seconds * 0.53 + phase + 4.0) * 0.40,
+    )..scale(gain);
   }
 
   /// The camera at animation position [x] (0 = parked on dock A, 1 = parked on
@@ -162,6 +245,7 @@ class FlightPath {
     // is free to look wherever the flight is going.
     final onA = 1 - _smoothstep(0.0, 0.13, u);
     final onB = _smoothstep(0.68, 0.97, u);
+    final level = math.max(onA, onB);
 
     // Aim along the path's heading but at a fixed downward pitch, the way a
     // camera ship is flown. Following the spline's own tangent would point the
@@ -185,26 +269,23 @@ class FlightPath {
     target = _mix3(target, Landmarks.dockA, onA);
     target = _mix3(target, Landmarks.dockB, onB);
 
-    // Bank into the turns: the sideways component of the path's acceleration,
-    // rolled off to level at both docks.
-    final ahead = pointAt(u + 0.02);
-    final behind = pointAt(u - 0.02);
-    final forward = (ahead - behind);
-    if (forward.length2 > 1e-6) forward.normalize();
-    final curve = ahead + behind - position * 2.0;
-    final right = forward.cross(vm.Vector3(0, 1, 0));
-    if (right.length2 > 1e-6) right.normalize();
-    final level = math.max(onA, onB);
-    final roll =
-        (curve.dot(right) * -0.055).clamp(-0.42, 0.42) * (1 - level);
+    // The hand-flown wander, faded out at both docks so the panels still frame
+    // exactly. The aim wanders further than the body, which is what makes it
+    // read as a camera operator rather than as turbulence.
+    final seconds = x * duration.inMilliseconds / 1000;
+    final gain = 1 - level;
+    position.add(_wander(seconds, 0, gain));
+    target.add(_wander(seconds, 1.9, gain * 2.4));
 
-    final up = vm.Quaternion.axisAngle(forward, roll).rotate(vm.Vector3(0, 1, 0));
+    final forward = target - position;
+    if (forward.length2 > 1e-6) forward.normalize();
+    final up = vm.Quaternion.axisAngle(forward, _rollAt(u) * gain)
+        .rotate(vm.Vector3(0, 1, 0));
 
     // The lens widens through the cruise and returns to the dock lens at both
     // ends, so the panels still frame exactly.
     final open = _smoothstep(0.03, 0.20, u) * (1 - _smoothstep(0.78, 0.97, u));
-    final fov = Landmarks.dockFovY +
-        (_cruiseFovY - Landmarks.dockFovY) * open;
+    final fov = Landmarks.dockFovY + (_cruiseFovY - Landmarks.dockFovY) * open;
 
     return CameraShot(position: position, target: target, up: up, fovY: fov);
   }

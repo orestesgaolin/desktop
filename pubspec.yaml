@@ -26,4 +26,5 @@ flutter:
   uses-material-design: true
   assets:
     - shaders/
+    - assets/images/
     - flutter_scene_generated/
