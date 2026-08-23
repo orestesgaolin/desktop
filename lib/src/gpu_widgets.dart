@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gpu/gpu.dart' as gpu;
@@ -106,11 +107,112 @@ class GpuShaderSampler extends StatefulWidget {
 
 class _GpuShaderSamplerState extends State<GpuShaderSampler> {
   final WidgetTextureController _capture = WidgetTextureController();
+  final GlobalKey _childKey = GlobalKey();
 
-  Offset _uv(Offset local, Size size) => Offset(
-        (local.dx / size.width).clamp(0.0, 1.0),
-        (local.dy / size.height).clamp(0.0, 1.0),
-      );
+  // ----- input forwarding -----
+  //
+  // The hosted subtree opts out of normal hit testing, so pointer events are
+  // re-dispatched into it by hand. Unlike WidgetTextureController's
+  // forwarding (which dispatches child-local positions and so breaks widgets
+  // that do `globalToLocal(details.globalPosition)` math, e.g. Slider), the
+  // hit path here carries the child's global transform and events use true
+  // screen coordinates — both globalPosition and localPosition come out
+  // right, so drags on sliders work.
+  static int _nextSyntheticPointer = 0x48000000;
+  int? _pointer;
+  HitTestResult? _path;
+  Offset _last = Offset.zero;
+
+  RenderBox? get _childBox {
+    final render = _childKey.currentContext?.findRenderObject();
+    return render is RenderBox && render.hasSize ? render : null;
+  }
+
+  (HitTestResult, Offset)? _hit(Offset local) {
+    final box = _childBox;
+    if (box == null) return null;
+    final childToGlobal = box.getTransformTo(null);
+    final global = MatrixUtils.transformPoint(childToGlobal, local);
+    final result = BoxHitTestResult();
+    result.addWithPaintTransform(
+      transform: childToGlobal,
+      position: global,
+      hitTest: (result, position) => box.hitTest(result, position: position),
+    );
+    // The trailing binding entry routes the event into the pointer router
+    // and closes the gesture arena, mirroring the live pointer pipeline.
+    result.add(HitTestEntry(GestureBinding.instance));
+    return (result, global);
+  }
+
+  void _down(PointerDownEvent e) {
+    if (_pointer != null) _cancel();
+    final hit = _hit(e.localPosition);
+    if (hit == null) return;
+    final (path, global) = hit;
+    _pointer = _nextSyntheticPointer++;
+    _path = path;
+    _last = global;
+    GestureBinding.instance.dispatchEvent(
+      PointerDownEvent(
+          pointer: _pointer!, position: global, kind: PointerDeviceKind.touch),
+      path,
+    );
+  }
+
+  void _move(PointerMoveEvent e) {
+    final pointer = _pointer;
+    final path = _path;
+    final box = _childBox;
+    if (pointer == null || path == null || box == null) return;
+    final global =
+        MatrixUtils.transformPoint(box.getTransformTo(null), e.localPosition);
+    GestureBinding.instance.dispatchEvent(
+      PointerMoveEvent(
+          pointer: pointer,
+          position: global,
+          delta: global - _last,
+          kind: PointerDeviceKind.touch),
+      path,
+    );
+    _last = global;
+  }
+
+  void _up(PointerUpEvent e) {
+    final pointer = _pointer;
+    final path = _path;
+    _pointer = null;
+    _path = null;
+    if (pointer == null || path == null) return;
+    GestureBinding.instance.dispatchEvent(
+      PointerUpEvent(
+          pointer: pointer, position: _last, kind: PointerDeviceKind.touch),
+      path,
+    );
+  }
+
+  void _cancel() {
+    final pointer = _pointer;
+    final path = _path;
+    _pointer = null;
+    _path = null;
+    if (pointer == null || path == null) return;
+    GestureBinding.instance.dispatchEvent(
+      PointerCancelEvent(
+          pointer: pointer, position: _last, kind: PointerDeviceKind.touch),
+      path,
+    );
+  }
+
+  void _scroll(PointerScrollEvent e) {
+    final hit = _hit(e.localPosition);
+    if (hit == null) return;
+    final (path, global) = hit;
+    GestureBinding.instance.dispatchEvent(
+      PointerScrollEvent(position: global, scrollDelta: e.scrollDelta),
+      path,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,14 +230,12 @@ class _GpuShaderSamplerState extends State<GpuShaderSampler> {
       if (widget.interactive) {
         surface = Listener(
           behavior: HitTestBehavior.opaque,
-          onPointerDown: (e) => _capture.pointerDown(_uv(e.localPosition, size)),
-          onPointerMove: (e) => _capture.pointerMove(_uv(e.localPosition, size)),
-          onPointerUp: (e) => _capture.pointerUp(_uv(e.localPosition, size)),
-          onPointerCancel: (_) => _capture.pointerCancel(),
+          onPointerDown: _down,
+          onPointerMove: _move,
+          onPointerUp: _up,
+          onPointerCancel: (_) => _cancel(),
           onPointerSignal: (e) {
-            if (e is PointerScrollEvent) {
-              _capture.pointerScroll(_uv(e.localPosition, size), e.scrollDelta);
-            }
+            if (e is PointerScrollEvent) _scroll(e);
           },
           child: surface,
         );
@@ -150,7 +250,7 @@ class _GpuShaderSamplerState extends State<GpuShaderSampler> {
             height: size.height,
             pixelRatio: widget.capturePixelRatio,
             update: WidgetUpdatePolicy.everyFrame,
-            child: widget.child,
+            child: KeyedSubtree(key: _childKey, child: widget.child),
           ),
           surface,
         ],

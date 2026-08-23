@@ -324,16 +324,18 @@ class _SceneControlCardState extends State<_SceneControlCard> {
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF2C2E31))),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Slider(
-                    value: _spin,
-                    min: 0,
-                    max: 2,
-                    activeColor: accent,
-                    onChanged: (v) {
-                      setState(() => _spin = v);
-                      widget.onSpinChanged(v);
-                    },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: _MiniSlider(
+                      value: _spin / 2,
+                      accent: accent,
+                      onChanged: (v) {
+                        setState(() => _spin = v * 2);
+                        widget.onSpinChanged(_spin);
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -342,5 +344,71 @@ class _SceneControlCardState extends State<_SceneControlCard> {
         ),
       ),
     );
+  }
+}
+
+/// A slider driven purely by `localPosition`, for surfaces that receive
+/// forwarded pointer input. flutter_scene's WidgetComponent forwarding
+/// synthesizes events whose localPosition is correct but whose
+/// globalPosition is child-local, which breaks Material's Slider
+/// (it computes its value via `globalToLocal(globalPosition)`).
+class _MiniSlider extends StatelessWidget {
+  const _MiniSlider({
+    required this.value,
+    required this.onChanged,
+    required this.accent,
+  });
+
+  final double value; // 0..1
+  final ValueChanged<double> onChanged;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      void set(Offset local) => onChanged((local.dx / width).clamp(0.0, 1.0));
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (d) => set(d.localPosition),
+        onHorizontalDragStart: (d) => set(d.localPosition),
+        onHorizontalDragUpdate: (d) => set(d.localPosition),
+        child: SizedBox(
+          height: 24,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0x242C2E31),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Container(
+                height: 4,
+                width: (width * value).clamp(0.0, width),
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Positioned(
+                left: ((width - 14) * value).clamp(0.0, width - 14),
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
