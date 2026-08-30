@@ -16,6 +16,10 @@ dependencies:
   flutter_scene: ^0.22.2
   flutter_svg: ^2.3.0
   marionette_flutter: ^0.6.0
+  mermaid_core:
+    path: ../mermaid/packages/mermaid_core
+  mermaid_flutter:
+    path: ../mermaid/packages/mermaid_flutter
   vector_math: ^2.4.2
   webview_flutter: ^4.14.1
 
@@ -24,6 +28,10 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   hooks: ^2.2.0
+
+dependency_overrides:
+  mermaid_core:
+    path: ../mermaid/packages/mermaid_core
 
 flutter:
   uses-material-design: true
