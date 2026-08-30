@@ -7,6 +7,25 @@ import '../palette.dart';
 import 'config.dart';
 import 'slides.dart';
 
+const _deckConfiguration = FlutterDeckConfiguration(
+  controls: FlutterDeckControlsConfiguration(
+    presenterToolbarVisible: true,
+    shortcuts: FlutterDeckShortcutsConfiguration(
+      toggleMarker: {
+        SingleActivator(LogicalKeyboardKey.keyM, meta: true, shift: true),
+      },
+      toggleNavigationDrawer: {
+        SingleActivator(LogicalKeyboardKey.period, meta: true),
+      },
+    ),
+  ),
+  progressIndicator: FlutterDeckProgressIndicator.solid(
+    color: spruce,
+    backgroundColor: panelHi,
+  ),
+  transition: FlutterDeckTransition.fade(),
+);
+
 /// The presentation.
 ///
 /// Most slides use shared layouts; the browser, native windowing, GPU,
@@ -28,7 +47,7 @@ class PresentationApp extends StatefulWidget {
 }
 
 class _PresentationAppState extends State<PresentationApp> {
-  late final List<FlutterDeckSlideWidget> _slides = buildSlides();
+  final _position = _DeckPositionPlugin();
 
   @override
   void initState() {
@@ -39,33 +58,114 @@ class _PresentationAppState extends State<PresentationApp> {
 
   @override
   Widget build(BuildContext context) {
+    final positionBeforeRebuild = _position.snapshot;
+    final slides = [
+      for (final slide in buildSlides())
+        _ReloadableSlide(
+          slide: slide,
+          initial: slide.configuration?.route == positionBeforeRebuild?.route,
+        ),
+    ];
+
+    if (positionBeforeRebuild != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _position.restore(positionBeforeRebuild),
+      );
+    }
+
     return FlutterDeckApp(
-      configuration: const FlutterDeckConfiguration(
-        controls: FlutterDeckControlsConfiguration(
-          presenterToolbarVisible: true,
-          shortcuts: FlutterDeckShortcutsConfiguration(
-            toggleMarker: {
-              SingleActivator(LogicalKeyboardKey.keyM, meta: true, shift: true),
-            },
-            toggleNavigationDrawer: {
-              SingleActivator(LogicalKeyboardKey.period, meta: true),
-            },
-          ),
-        ),
-        progressIndicator: FlutterDeckProgressIndicator.solid(
-          color: spruce,
-          backgroundColor: panelHi,
-        ),
-        transition: FlutterDeckTransition.fade(),
-      ),
+      configuration: _deckConfiguration,
       lightTheme: deckTheme(),
       darkTheme: deckTheme(),
       themeMode: ThemeMode.light,
-      // Keep the same widget instances across rebuilds. flutter_deck treats a
-      // newly-created list as a dynamic slide update and resets its router,
-      // which otherwise sends the deck back to the beginning on hot reload.
-      slides: _slides,
+      plugins: [_position],
+      // Construct slide widgets in build so changes to constructor arguments
+      // are visible immediately after hot reload. [_position] independently
+      // restores the active route and step after flutter_deck updates its
+      // router for the regenerated list.
+      slides: slides,
     );
+  }
+}
+
+class _ReloadableSlide extends FlutterDeckSlideWidget {
+  _ReloadableSlide({required this.slide, required bool initial})
+    : super(
+        configuration: _configurationFor(
+          slide.configuration!.mergeWithGlobal(_deckConfiguration),
+          initial: initial,
+        ),
+      );
+
+  final FlutterDeckSlideWidget slide;
+
+  @override
+  Widget build(BuildContext context) => slide;
+
+  static FlutterDeckSlideConfiguration _configurationFor(
+    FlutterDeckSlideConfiguration configuration, {
+    required bool initial,
+  }) => FlutterDeckSlideConfiguration(
+    route: configuration.route,
+    hidden: configuration.hidden,
+    initial: initial,
+    preloadImages: configuration.preloadImages,
+    speakerNotes: configuration.speakerNotes,
+    steps: configuration.steps,
+    title: configuration.title,
+    footer: configuration.footer,
+    header: configuration.header,
+    progressIndicator: configuration.progressIndicator,
+    showProgress: configuration.showProgress,
+    transition: configuration.transition,
+  );
+}
+
+typedef _DeckPosition = ({String route, int step});
+
+class _DeckPositionPlugin extends FlutterDeckPlugin {
+  FlutterDeck? _deck;
+  _DeckPosition? snapshot;
+
+  @override
+  void init(FlutterDeck flutterDeck) {
+    _deck = flutterDeck;
+    flutterDeck.router.addListener(_capture);
+    _capture();
+  }
+
+  @override
+  void dispose() {
+    _deck?.router.removeListener(_capture);
+    _deck = null;
+  }
+
+  void _capture() {
+    final router = _deck?.router;
+    if (router == null) return;
+    snapshot = (
+      route: router.currentSlideConfiguration.route,
+      step: router.currentStep,
+    );
+  }
+
+  void restore(_DeckPosition position) {
+    final router = _deck?.router;
+    if (router == null) return;
+
+    final slideIndex = router.slides.indexWhere(
+      (slide) => slide.route == position.route,
+    );
+    if (slideIndex == -1) return;
+
+    if (router.currentSlideIndex != slideIndex) {
+      router.goToSlide(slideIndex + 1);
+    }
+
+    final steps = router.currentSlideConfiguration.steps;
+    final step = position.step > steps ? steps : position.step;
+    if (step > 1) router.goToStep(step);
+    _capture();
   }
 }
 

@@ -102,10 +102,14 @@ class ImmersiveMediaSlideLayout extends FlutterDeckSlideWidget {
     this.label,
     this.mediaBuilder,
     this.aspectRatio = 16 / 9,
+    this.steps = 1,
+    String speakerNotes = '',
   }) : super(
          configuration: FlutterDeckSlideConfiguration(
            route: route,
            title: title,
+           steps: steps,
+           speakerNotes: speakerNotes,
          ),
        );
 
@@ -113,6 +117,7 @@ class ImmersiveMediaSlideLayout extends FlutterDeckSlideWidget {
   final String? label;
   final WidgetBuilder? mediaBuilder;
   final double aspectRatio;
+  final int steps;
 
   @override
   Widget build(BuildContext context) => FlutterDeckSlide.custom(
