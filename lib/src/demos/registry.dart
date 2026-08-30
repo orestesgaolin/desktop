@@ -116,8 +116,10 @@ FullscreenDemo _mandelbrot() {
         final ay = (frame.pointerUv.dy - 0.5) * 2;
         final px = cx + ax * halfH;
         final py = cy + ay * halfH;
-        halfH = (halfH * math.exp(frame.scrollDelta * 0.0016))
-            .clamp(3.0e-5, 2.2);
+        halfH = (halfH * math.exp(frame.scrollDelta * 0.0016)).clamp(
+          3.0e-5,
+          2.2,
+        );
         cx = px - ax * halfH;
         cy = py - ay * halfH;
       }
