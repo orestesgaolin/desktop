@@ -165,6 +165,168 @@ and 60 fps on a 60 Hz external display. Launch with
 `GPU_PLAYGROUND_PROMOTION=1` to open the window on the highest-refresh
 screen automatically, or just drag it there.
 
+## Design Canvas
+
+The Design Canvas is a serializable desktop graphics-editor demo rather than
+a static slide. Its current interaction model was refined through native mouse
+and trackpad testing and is covered by document, shader-compilation, and widget
+workflow tests in `test/demos/`.
+
+### Current interaction model
+
+| Area | Behavior |
+| --- | --- |
+| Selection | Pointer-down selects immediately and can start a drag. Single-click selects text; double-click edits it. Nested frames are directly selectable. |
+| Transforms | Eight resize handles, a top-center rotation handle, Shift-resize for proportional scaling, Shift-rotation for 45-degree snapping, and screen-aligned dragging for rotated objects. |
+| Hierarchy | Layers can be nested, reordered between siblings, or detached at the root. Moving or rotating a container updates its descendants. |
+| Mouse | Primary drag moves objects. Space-primary drag and middle-button drag pan the viewport. |
+| Trackpad | Two-finger gestures pan and pinch gestures zoom. Trackpad gestures never select, move, resize, rotate, or modify component slots. |
+| Zoom | Pointer-centered modifier-wheel zoom, trackpad pinch, fit canvas, focus selection, and one coordinate model for objects, handles, grid, and guides. |
+| Snapping | Movement snaps object edges and centers to the parent and siblings, then falls back to the document grid. Tolerance remains stable in screen pixels. |
+| Layers | Recursive tree, drag-to-reparent, before/after drop zones, context menus, inline rename, and sibling front/back ordering. |
+| Components | Separate definitions and instances, component-edit mode, positioned slots, layer-to-slot assignment, component references, and slot deletion. |
+| Content | Rectangles, ellipses, text, raster images, SVG images, lines, components, filters, radius, and frame or artboard shaders. |
+| History | Up to 1,000 complete serialized states, branching undo/redo, preserved viewport and selection, full-history save/import, and autoplay. |
+| Shaders | Custom runtime compilation, previous-result retention while compiling, last-good fallback, and `Frame only` or `Frame + children` scope. |
+
+The implementation follows several rules that should remain explicit as it
+grows:
+
+- View state (zoom, pan, selection, hover and edit modes) is separate from the
+  serialized document state.
+- Mouse object manipulation and trackpad viewport navigation are different
+  input classes and must not compete for the same gesture.
+- Selection is separate from text, rename and component editing.
+- A continuous move, resize, rotation or slot edit creates one history state
+  when the gesture finishes.
+- Asynchronous rendering keeps the previous valid visual result until a new
+  shader or asset is ready.
+
+### Main architectural constraint
+
+Hierarchy is currently semantic while geometry remains in canvas coordinates.
+Children store absolute position and rotation. Parent movement and rotation
+therefore update every descendant explicitly; ordinary parent resize does not
+scale children, while component slots use a separate relayout path. Deleting a
+container promotes its children to the deleted container's parent.
+
+This makes one `parentId` relationship behave differently for move, rotate,
+resize and delete, and it was the common cause behind several interaction
+fixes. Before extending nested layout further, the editor should distinguish:
+
+- **Group** — a transform-only collection whose children share its transform.
+- **Frame** — a bounded container with background, clipping and layout rules.
+- **Component definition** — a reusable editable layer subtree.
+- **Component instance** — a reference with explicit overrides.
+- **Slot** — a typed placement rule for layer or component content.
+
+Children should eventually store parent-local transforms. Rendering, hit
+testing, handles, snapping, reparenting and serialization can then use composed
+matrices instead of per-operation descendant patches.
+
+### Remaining core UX work
+
+The most important missing editor behaviors are:
+
+1. **Consistent hierarchy transforms.** Define parent resize, rotated nesting,
+   reparenting, deletion and clip-content behavior using local transforms.
+2. **Multi-selection.** Add Shift-click, marquee selection, Command-A, shared
+   transform bounds, group/ungroup, alignment, distribution and bulk styling.
+3. **Deep and overlapping selection.** Add click cycling, select-through,
+   enter-container and Escape-to-parent behavior. Locked layers should not
+   participate in canvas hit testing.
+4. **Layer management.** Add visibility, locking, expand/collapse, search,
+   reveal selection, persistent expansion state and drag auto-scroll.
+5. **Precise transforms.** Make X, Y, width, height and rotation editable. Add
+   arrow-key nudging, larger Shift nudges, aspect lock, resize from center,
+   flip, reset rotation and a temporary snapping override.
+6. **Transform-aware snapping.** Support rotated bounds, resize snapping,
+   equal-spacing guides, distance labels, explicit snapping preferences and
+   clear visual indication of the active anchors.
+7. **Gesture transactions.** Capture gesture-start state and restore it on
+   cancellation rather than leaving a partially changed object outside
+   history.
+8. **Real tool modes.** The Move control is currently only a visual affordance,
+   while shape tools insert fixed-size objects. Add click-drag creation, active
+   tool cursors and Escape-to-Move behavior.
+9. **Editor/deck focus ownership.** While the canvas is active, editor keyboard
+   commands should win over slide navigation. Escape can return focus to the
+   presentation.
+10. **Document safety.** Add dirty-state feedback, Save As, autosave/recovery,
+    recent files and confirmation before replacing unsaved work.
+
+### Components and layout
+
+The component proof of concept still needs normal component-authoring UX:
+
+- Create a component from a selection and edit a definition-owned layer tree.
+- Update all instances when the master changes.
+- Support text, image, color, visibility and slot overrides, with Reset and
+  Detach actions.
+- Rename, duplicate and order slots; define whether each slot accepts one item,
+  multiple items, arbitrary layers or selected component types.
+- Show empty, occupied and incompatible slot states clearly.
+- Add pin, fill, hug, fixed, min/max, padding, gap and auto-layout rules.
+
+Frames also need explicit `Clip content` behavior. A child currently belongs to
+a frame in the Layers tree but may still paint outside it.
+
+### Content and style backlog
+
+- Text: alignment, line height, letter spacing, vertical alignment,
+  auto-width/auto-height/fixed-frame modes, truncation and overflow warnings.
+- Images: replace, crop, focal point, original-size restore, fit/fill controls,
+  opacity and loading/error states.
+- Shapes: stroke, opacity, shadows, gradients and independent corner radii.
+- Lines: endpoint handles, arrowheads, dash patterns and joins, followed later
+  by Bezier paths.
+- SVG: preserve-vector export first; editable paths, boolean operations and
+  reusable icon symbols later.
+- Styles: named text, fill, effect and shader styles for maintaining larger UI
+  documents.
+
+### Screens, navigation and output
+
+The current phone design is one composition on one canvas. A screen-design and
+prototype workflow would additionally need:
+
+- Multiple pages or artboards, screen thumbnails, device presets and safe areas.
+- Links, tap interactions, transitions, a start screen, back navigation and a
+  prototype preview.
+- PNG, SVG and PDF export, selected-artboard export, transparent backgrounds,
+  scale presets and system-clipboard interchange.
+- A direct way to insert or update a selected artboard as a presentation slide.
+- Responsive panels and toolbar overflow for narrower presentation windows.
+
+### Shader and history follow-ups
+
+`Frame + children` currently applies the shader independently to every
+descendant, so UV coordinates restart at each layer. A true subtree effect
+should flatten the visual subtree to one texture and run the shader once.
+Future shader UX should also expose uniforms, ordering relative to filters,
+preview bypass, source error locations, debounce/cancellation and cached
+thumbnails.
+
+Autoplay currently uses the same snapshot sequence as edit history. A more
+complete version should separate presentation playback from undo, then add a
+scrubber, pause/resume, speed, state labels, timestamps and return-to-current.
+Embedded assets should also be stored once by content hash rather than repeated
+inside every full-document history snapshot.
+
+### Recommended sequence
+
+1. Define group/frame/component semantics and migrate to parent-local transforms.
+2. Establish canvas focus, keyboard ownership and arrow-key nudging.
+3. Add multi-selection, marquee, lock/hide and deep-selection rules.
+4. Add numeric transforms, transform-aware snapping and clipping.
+5. Implement real drawing tools and complete document safety and export.
+6. Build master components, instance overrides and responsive layout.
+7. Add multiple screens/artboards and prototype navigation.
+8. Implement composited subtree shaders and a separate playback timeline.
+
+This order avoids adding more per-frame and per-component exceptions to the
+current flat world-coordinate model.
+
 ## Every demo is editable
 
 There is no precompiled shader bundle: **all GLSL is compiled at
