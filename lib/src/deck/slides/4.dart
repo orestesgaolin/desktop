@@ -7,7 +7,7 @@ class Slide4 extends ImmersiveMediaSlideLayout {
   Slide4({super.key})
     : super(
         route: '/first-desktop-talk',
-        title: 'My first Flutter desktop talk was in January 2020.',
+        title: 'My first Flutter desktop talk - January 2020',
         label: 'Six years watching desktop',
         aspectRatio: 1421 / 1226,
         steps: 2,
@@ -21,7 +21,7 @@ class Slide4 extends ImmersiveMediaSlideLayout {
           builder: (context, step) => ClipRect(
             clipBehavior: Clip.hardEdge,
             child: AnimatedScale(
-              scale: step >= 2 ? 2.3 : 1,
+              scale: step >= 2 ? 2.9 : 1,
               alignment: Alignment.bottomLeft,
               duration: const Duration(milliseconds: 700),
               curve: Curves.easeInOutCubic,

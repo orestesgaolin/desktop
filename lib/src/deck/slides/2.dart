@@ -38,8 +38,7 @@ class Slide2 extends FlutterDeckSlideWidget {
           route: '/daily-desktop-apps',
           title: 'How many Flutter desktop apps do you use every day?',
           speakerNotes:
-              'Open the slide to start polling. Configure the result feed '
-              'with --dart-define=POLL_RESULTS_URL=<endpoint>.',
+              '',
         ),
       );
 

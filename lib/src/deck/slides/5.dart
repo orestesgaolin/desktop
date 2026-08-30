@@ -11,7 +11,7 @@ class Slide5 extends FlutterDeckSlideWidget {
     : super(
         configuration: const FlutterDeckSlideConfiguration(
           route: '/desktop-timeline',
-          title: 'Six years to real desktop capabilities',
+          title: 'Six years of Flutter Desktop',
           steps: 6,
           speakerNotes:
               'Flutter desktop milestones from early access to native '
@@ -42,23 +42,23 @@ class Slide5 extends FlutterDeckSlideWidget {
     _TimelineEvent(
       date: '2022—2024',
       release: 'The quiet years',
-      description: 'Stable, but short of full desktop capabilities',
+      description: 'Stable, but not fully desktop-ready',
     ),
     _TimelineEvent(
       date: '2024',
       release: 'Canonical',
-      description: 'Stewardship grows from Linux to desktop as a whole',
+      description: 'Stewardship of Linux\nand other OSes',
     ),
     _TimelineEvent(
       date: 'AUG 2025',
       release: 'Flutter 3.35',
-      description: 'Merged threads land as native interop matures',
+      description: 'Merged threads\n+ native interop',
     ),
     _TimelineEvent(
       date: 'AUG 2026',
       release: 'Flutter 3.47',
       description:
-          'Impeller becomes default; multi-window changes the headline',
+          'Impeller as default\n+ multi-window support',
     ),
   ];
 
@@ -75,7 +75,7 @@ class Slide5 extends FlutterDeckSlideWidget {
               SizedBox(
                 width: 1020 * s,
                 child: Text(
-                  'Six years to real desktop capabilities.',
+                  configuration?.title ?? '',
                   style: PageText.title(s),
                 ),
               ),

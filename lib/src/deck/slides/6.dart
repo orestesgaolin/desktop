@@ -4,7 +4,7 @@ class Slide6 extends TitleOnlySlideLayout {
   Slide6({super.key})
     : super(
         route: '/stable-was-not-complete',
-        title: 'Stable meant “doesn’t crash.” Not “desktop-complete.”',
+        title: 'Stable = “doesn’t crash.”\nStill not feasible for real desktop apps.',
         label: 'The gap after stable',
       );
 }
