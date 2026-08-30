@@ -28,6 +28,15 @@ enum _CanvasEffect { none, paper, halftone, ripple, custom }
 
 enum _GuideAxis { horizontal, vertical }
 
+const _textFontFamilies = <String>[
+  'System',
+  'Avenir Next',
+  'Helvetica Neue',
+  'Futura',
+  'Georgia',
+  'Menlo',
+];
+
 enum _LayerCommand {
   copy,
   cut,
@@ -204,6 +213,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
   String? _shaderTargetLayerId;
   GpuShaderCompileStatus? _shaderStatus;
   late GraphicsDocumentHistory _history;
+  final Map<String, String?> _selectionByHistoryState = {};
   Timer? _historyPlaybackTimer;
   bool _isPlayingHistory = false;
   int? _historyPlaybackIndex;
@@ -323,6 +333,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
     for (final state in starterStates.skip(1)) {
       _history.commit(state);
     }
+    _rememberHistorySelection(_history.current);
   }
 
   @override
@@ -371,6 +382,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           color: const Color(0xFF1D1C22),
           text: 'Good morning',
           parentId: headerId,
+          properties: const {'fontSize': 14.0, 'bold': true},
         ),
         _DesignLayer(
           id: 'starter-header-caption',
@@ -381,6 +393,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           color: const Color(0xFF77747F),
           text: 'Your workspace, at a glance',
           parentId: headerId,
+          properties: const {'fontSize': 10.0},
         ),
         _DesignLayer(
           id: featuredCardId,
@@ -402,6 +415,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           color: const Color(0xFFDAD5FF),
           text: 'FEATURED',
           parentId: featuredCardId,
+          properties: const {'fontSize': 9.0, 'bold': true},
         ),
         _DesignLayer(
           id: 'starter-feature-title',
@@ -412,6 +426,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           color: const Color(0xFFFFFFFF),
           text: 'Build better habits',
           parentId: featuredCardId,
+          properties: const {'fontSize': 16.0, 'bold': true},
         ),
         _DesignLayer(
           id: 'starter-feature-copy',
@@ -422,6 +437,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           color: const Color(0xFFE8E5FF),
           text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
           parentId: featuredCardId,
+          properties: const {'fontSize': 11.0},
         ),
         _DesignLayer(
           id: 'starter-card-focus',
@@ -442,6 +458,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           color: const Color(0xFF27231A),
           text: 'Focus\n\nLorem ipsum dolor sit amet.',
           parentId: 'starter-card-focus',
+          properties: const {'fontSize': 10.0},
         ),
         _DesignLayer(
           id: 'starter-card-progress',
@@ -462,6 +479,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           color: const Color(0xFF16322D),
           text: 'Progress\n\nLorem ipsum dolor sit amet.',
           parentId: 'starter-card-progress',
+          properties: const {'fontSize': 10.0},
         ),
         _DesignLayer(
           id: 'starter-activity-card',
@@ -482,6 +500,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           color: const Color(0xFF34313A),
           text: 'Recent activity\nLorem ipsum dolor sit amet, consectetur.',
           parentId: 'starter-activity-card',
+          properties: const {'fontSize': 10.0},
         ),
         _DesignLayer(
           id: 'starter-activity-divider',
@@ -1345,6 +1364,9 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
         _stopHistoryPlayback(restoreCurrent: false, notify: false);
         _history = importedHistory;
         _applyDocument(importedHistory.current, resetViewport: true);
+        _selectionByHistoryState
+          ..clear()
+          ..[_historyStateKey(importedHistory.current)] = _selectedId;
         _documentStatus = 'Imported ${file.name}';
         _documentStatusIsError = false;
       });
@@ -1392,6 +1414,41 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
             'Line node "${layer.id}" has invalid stroke properties.',
           );
         }
+      }
+      if (layer.kind == _LayerKind.text) {
+        final fontFamily = layer.properties['fontFamily'];
+        if (fontFamily != null &&
+            (fontFamily is! String ||
+                fontFamily.trim().isEmpty ||
+                fontFamily.length > 128)) {
+          throw GraphicsDocumentFormatException(
+            'Text node "${layer.id}" has an invalid font family.',
+          );
+        }
+        final fontSize = layer.properties['fontSize'];
+        if (fontSize != null &&
+            (fontSize is! num ||
+                !fontSize.toDouble().isFinite ||
+                fontSize < 8 ||
+                fontSize > 96)) {
+          throw GraphicsDocumentFormatException(
+            'Text node "${layer.id}" has an invalid font size.',
+          );
+        }
+        for (final property in const ['bold', 'italic']) {
+          final value = layer.properties[property];
+          if (value != null && value is! bool) {
+            throw GraphicsDocumentFormatException(
+              'Text node "${layer.id}" has an invalid $property value.',
+            );
+          }
+        }
+      }
+      final shaderIncludesChildren = layer.properties['shaderIncludesChildren'];
+      if (shaderIncludesChildren != null && shaderIncludesChildren is! bool) {
+        throw GraphicsDocumentFormatException(
+          'Node "${layer.id}" has an invalid shader scope.',
+        );
       }
       final source = layer.imageSource;
       if (source?.type == 'embedded' && source?.mimeType == 'image/svg+xml') {
@@ -1480,18 +1537,48 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
     if (_history.commit(_documentSnapshot()) && mounted) setState(() {});
   }
 
+  String _historyStateKey(GraphicsDocument document) =>
+      document.encode(pretty: false);
+
+  void _rememberHistorySelection(GraphicsDocument document) {
+    _selectionByHistoryState[_historyStateKey(document)] = _selectedId;
+  }
+
+  String? _rememberedSelection(GraphicsDocument document) =>
+      _selectionByHistoryState[_historyStateKey(document)];
+
   void _undo() {
     _stopHistoryPlayback(restoreCurrent: true, notify: false);
+    _rememberHistorySelection(_history.current);
+    final selectedId = _selectedId;
     final document = _history.undo();
     if (document == null) return;
-    setState(() => _applyDocument(document));
+    final rememberedId = _rememberedSelection(document);
+    setState(() {
+      _applyDocument(document);
+      if (_layerById(selectedId) != null) {
+        _selectedId = selectedId;
+      } else if (_layerById(rememberedId) != null) {
+        _selectedId = rememberedId;
+      }
+    });
   }
 
   void _redo() {
     _stopHistoryPlayback(restoreCurrent: true, notify: false);
+    _rememberHistorySelection(_history.current);
+    final selectedId = _selectedId;
     final document = _history.redo();
     if (document == null) return;
-    setState(() => _applyDocument(document));
+    final rememberedId = _rememberedSelection(document);
+    setState(() {
+      _applyDocument(document);
+      if (_layerById(rememberedId) != null) {
+        _selectedId = rememberedId;
+      } else if (_layerById(selectedId) != null) {
+        _selectedId = selectedId;
+      }
+    });
   }
 
   void _toggleHistoryPlayback() {
@@ -1894,6 +1981,20 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
     _activeGuides = snapped.guides;
   }
 
+  void _rotateLayerWithDescendants(_DesignLayer layer, double rotation) {
+    final delta = rotation - layer.rotation;
+    if (delta.abs() < 0.000001) return;
+    final pivot = layer.position + layer.size.center(Offset.zero);
+    for (final descendant in _descendantsOf(layer.id)) {
+      final center = descendant.position + descendant.size.center(Offset.zero);
+      final rotatedCenter = pivot + _rotateOffset(center - pivot, delta);
+      descendant
+        ..position = rotatedCenter - descendant.size.center(Offset.zero)
+        ..rotation += delta;
+    }
+    layer.rotation = rotation;
+  }
+
   _SnapResult _snapPosition(
     _DesignLayer layer,
     Offset rawPosition,
@@ -2172,7 +2273,8 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
         _resizeLayer(layer, handle, delta, proportional: proportional);
       }),
       onResizeEnd: _commitHistory,
-      onRotate: (layer, angle) => setState(() => layer.rotation = angle),
+      onRotate: (layer, angle) =>
+          setState(() => _rotateLayerWithDescendants(layer, angle)),
       onRotateEnd: _commitHistory,
       editingTextId: _editingTextLayerId,
       inlineEditor: _inlineEditor,
@@ -2472,10 +2574,12 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
                 const SizedBox(height: 18),
                 const _PanelHeading('ROTATION'),
                 Slider(
+                  key: const Key('layer-rotation'),
                   value: layer.rotation.clamp(-math.pi, math.pi),
                   min: -math.pi,
                   max: math.pi,
-                  onChanged: (value) => setState(() => layer.rotation = value),
+                  onChanged: (value) =>
+                      setState(() => _rotateLayerWithDescendants(layer, value)),
                   onChangeEnd: (_) => _commitHistory(),
                 ),
                 Text(
@@ -2485,6 +2589,135 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
                   style: const TextStyle(color: _muted, fontSize: 10.5),
                 ),
                 const SizedBox(height: 14),
+                if (layer.kind == _LayerKind.text) ...[
+                  const _PanelHeading('FONT'),
+                  const SizedBox(height: 8),
+                  PopupMenuButton<String>(
+                    key: const Key('text-font-family'),
+                    tooltip: 'Font family',
+                    initialValue:
+                        layer.properties['fontFamily'] as String? ?? 'System',
+                    color: _menuSurface,
+                    position: PopupMenuPosition.under,
+                    onSelected: (fontFamily) => _commitMutation(() {
+                      if (fontFamily == 'System') {
+                        layer.properties.remove('fontFamily');
+                      } else {
+                        layer.properties['fontFamily'] = fontFamily;
+                      }
+                    }),
+                    itemBuilder: (context) => [
+                      for (final fontFamily in _textFontFamilies)
+                        PopupMenuItem(
+                          value: fontFamily,
+                          child: Text(
+                            fontFamily,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: fontFamily == 'System'
+                                  ? null
+                                  : fontFamily,
+                            ),
+                          ),
+                        ),
+                    ],
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: _menuSurface,
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              layer.properties['fontFamily'] as String? ??
+                                  'System',
+                              key: const Key('text-font-family-value'),
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          const Icon(
+                            Icons.arrow_drop_down,
+                            size: 18,
+                            color: Colors.white70,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      const Text(
+                        'SIZE',
+                        style: TextStyle(color: _muted, fontSize: 10),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${((layer.properties['fontSize'] as num?) ?? 18).round()} px',
+                        key: const Key('text-font-size-value'),
+                        style: const TextStyle(color: _muted, fontSize: 10.5),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    key: const Key('text-font-size'),
+                    value: ((layer.properties['fontSize'] as num?) ?? 18)
+                        .toDouble()
+                        .clamp(8, 96),
+                    min: 8,
+                    max: 96,
+                    divisions: 88,
+                    onChanged: (value) =>
+                        setState(() => layer.properties['fontSize'] = value),
+                    onChangeEnd: (_) => _commitHistory(),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          key: const Key('text-bold'),
+                          onPressed: () => _commitMutation(
+                            () => layer.properties['bold'] =
+                                layer.properties['bold'] != true,
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: layer.properties['bold'] == true
+                                ? _accent.withValues(alpha: 0.28)
+                                : Colors.transparent,
+                          ),
+                          child: const Tooltip(
+                            message: 'Bold',
+                            child: Icon(Icons.format_bold, size: 17),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          key: const Key('text-italic'),
+                          onPressed: () => _commitMutation(
+                            () => layer.properties['italic'] =
+                                layer.properties['italic'] != true,
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: layer.properties['italic'] == true
+                                ? _accent.withValues(alpha: 0.28)
+                                : Colors.transparent,
+                          ),
+                          child: const Tooltip(
+                            message: 'Italic',
+                            child: Icon(Icons.format_italic, size: 17),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                ],
                 const _PanelHeading('FILL'),
                 const SizedBox(height: 10),
                 Wrap(
@@ -2693,6 +2926,34 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
                     }
                   },
                 ),
+                if (layer.shaderEffect != _CanvasEffect.none &&
+                    layer.kind != _LayerKind.text &&
+                    layer.kind != _LayerKind.line) ...[
+                  const SizedBox(height: 9),
+                  DropdownButtonFormField<bool>(
+                    key: const Key('frame-shader-scope'),
+                    isExpanded: true,
+                    initialValue:
+                        layer.properties['shaderIncludesChildren'] == true,
+                    dropdownColor: _menuSurface,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    decoration: _fieldDecoration(),
+                    items: const [
+                      DropdownMenuItem(value: false, child: Text('Frame only')),
+                      DropdownMenuItem(
+                        value: true,
+                        child: Text('Frame + children'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      _commitMutation(
+                        () =>
+                            layer.properties['shaderIncludesChildren'] = value,
+                      );
+                    },
+                  ),
+                ],
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -3103,7 +3364,6 @@ class _Artboard extends StatelessWidget {
   }
 
   Widget _buildCanvasLayer(_DesignLayer layer) {
-    final interactionLayer = _interactionLayerFor(layer);
     return _CanvasLayer(
       key: ValueKey(layer.id),
       layer: layer,
@@ -3111,11 +3371,12 @@ class _Artboard extends StatelessWidget {
           ? null
           : components[layer.componentId],
       componentDefinitions: components,
+      shaderOwner: _shaderOwnerFor(layer),
       selected: layer.id == selectedId,
-      onSelect: () => onSelect(interactionLayer.id),
+      onSelect: () => onSelect(layer.id),
       onDoubleSelect: () => onDoubleSelect(layer),
       onSecondaryTapDown: (details) => onSecondaryTapDown(layer, details),
-      onMove: (delta) => onMove(interactionLayer, delta),
+      onMove: (delta) => onMove(layer, delta),
       onMoveEnd: onMoveEnd,
       editingText: editingTextId == layer.id,
       inlineEditor: inlineEditor,
@@ -3130,18 +3391,21 @@ class _Artboard extends StatelessWidget {
     );
   }
 
-  _DesignLayer _interactionLayerFor(_DesignLayer layer) {
-    var current = layer;
-    var root = layer;
-    while (true) {
-      if (current.id == selectedId) return current;
+  _DesignLayer? _shaderOwnerFor(_DesignLayer layer) {
+    if (layer.shaderEffect != _CanvasEffect.none) return layer;
+    var parentId = layer.parentId;
+    while (parentId != null) {
       final parent = layers
-          .where((candidate) => candidate.id == current.parentId)
+          .where((candidate) => candidate.id == parentId)
           .firstOrNull;
-      if (parent == null) return root;
-      current = parent;
-      root = parent;
+      if (parent == null) return null;
+      if (parent.shaderEffect != _CanvasEffect.none &&
+          parent.properties['shaderIncludesChildren'] == true) {
+        return parent;
+      }
+      parentId = parent.parentId;
     }
+    return null;
   }
 }
 
@@ -3151,6 +3415,7 @@ class _CanvasLayer extends StatelessWidget {
     required this.layer,
     required this.component,
     required this.componentDefinitions,
+    required this.shaderOwner,
     required this.selected,
     required this.onSelect,
     required this.onDoubleSelect,
@@ -3172,6 +3437,7 @@ class _CanvasLayer extends StatelessWidget {
   final _DesignLayer layer;
   final GraphicsComponentDefinition? component;
   final Map<String, GraphicsComponentDefinition> componentDefinitions;
+  final _DesignLayer? shaderOwner;
   final bool selected;
   final VoidCallback onSelect;
   final VoidCallback onDoubleSelect;
@@ -3206,14 +3472,21 @@ class _CanvasLayer extends StatelessWidget {
                   ? _inlineTextEditor()
                   : _LayerGesture(
                       key: ValueKey('layer-gesture-${layer.id}'),
+                      doubleSelectable: layer.kind == _LayerKind.text,
                       onSelect: onSelect,
                       onDoubleSelect: onDoubleSelect,
                       onSecondaryTapDown: onSecondaryTapDown,
-                      onMove: onMove,
+                      onMove: (delta) =>
+                          onMove(_rotateOffset(delta, layer.rotation)),
                       onMoveEnd: onMoveEnd,
                       child: KeyedSubtree(
                         key: ValueKey('layer-body-${layer.id}'),
-                        child: _shaderLayer(_filteredLayer()),
+                        child: KeyedSubtree(
+                          key: ValueKey(
+                            'shader-owner-${layer.id}-${shaderOwner?.id ?? 'none'}',
+                          ),
+                          child: _shaderLayer(_filteredLayer()),
+                        ),
                       ),
                     ),
             ),
@@ -3348,14 +3621,15 @@ class _CanvasLayer extends StatelessWidget {
   }
 
   Widget _shaderLayer(Widget child) {
-    final effect = layer.shaderEffect;
-    if (!enableShaders || effect == _CanvasEffect.none) return child;
+    final owner = shaderOwner;
+    if (!enableShaders || owner == null) return child;
+    final effect = owner.shaderEffect;
     final source = effect == _CanvasEffect.custom
-        ? (layer.properties['appliedCustomShader'] as String? ??
+        ? (owner.properties['appliedCustomShader'] as String? ??
               fallbackCustomShader)
         : _effectSource(effect);
     return GpuShaderSampler(
-      key: ValueKey('layer-shader-${layer.id}'),
+      key: ValueKey('layer-shader-${layer.id}-${owner.id}'),
       fragmentSource: source,
       paused: playback.paused,
       timeScale: playback.speed,
@@ -3366,16 +3640,24 @@ class _CanvasLayer extends StatelessWidget {
       initialCompilingFallback: child,
       compilingOverlay: _ShaderCompilingOverlay(displayScale: displayScale),
       compilationRevision: shaderRevision,
-      onCompileStatus: effect == _CanvasEffect.custom ? onShaderStatus : null,
+      onCompileStatus: effect == _CanvasEffect.custom && owner.id == layer.id
+          ? onShaderStatus
+          : null,
       child: child,
     );
   }
 
   TextStyle get _textStyle => TextStyle(
     color: layer.color,
-    fontSize: 18,
+    fontSize: ((layer.properties['fontSize'] as num?) ?? 18).toDouble(),
     height: 1.04,
-    fontWeight: FontWeight.w500,
+    fontWeight: layer.properties['bold'] == true
+        ? FontWeight.w700
+        : FontWeight.w500,
+    fontStyle: layer.properties['italic'] == true
+        ? FontStyle.italic
+        : FontStyle.normal,
+    fontFamily: layer.properties['fontFamily'] as String?,
   );
 
   Widget _filteredLayer() {
@@ -3502,6 +3784,7 @@ class _LinePainter extends CustomPainter {
 class _LayerGesture extends StatefulWidget {
   const _LayerGesture({
     super.key,
+    required this.doubleSelectable,
     required this.onSelect,
     required this.onDoubleSelect,
     required this.onSecondaryTapDown,
@@ -3510,6 +3793,7 @@ class _LayerGesture extends StatefulWidget {
     required this.child,
   });
 
+  final bool doubleSelectable;
   final VoidCallback onSelect;
   final VoidCallback onDoubleSelect;
   final GestureTapDownCallback onSecondaryTapDown;
@@ -3522,12 +3806,7 @@ class _LayerGesture extends StatefulWidget {
 }
 
 class _LayerGestureState extends State<_LayerGesture> {
-  Duration? _lastTapTime;
-  Offset? _lastTapPosition;
-  Offset? _pointerDownPosition;
-  bool _pointerMoved = false;
   bool _movingLayer = false;
-  bool _suppressTap = false;
 
   bool get _spacePan =>
       HardwareKeyboard.instance.isLogicalKeyPressed(LogicalKeyboardKey.space);
@@ -3538,47 +3817,15 @@ class _LayerGestureState extends State<_LayerGesture> {
     onPointerDown: (event) {
       if (event.buttons & kPrimaryButton == 0 || _spacePan) return;
       widget.onSelect();
-      _pointerDownPosition = event.localPosition;
-      _pointerMoved = false;
-      final previousTime = _lastTapTime;
-      final previousPosition = _lastTapPosition;
-      if (previousTime != null &&
-          previousPosition != null &&
-          event.timeStamp - previousTime < const Duration(milliseconds: 350) &&
-          (event.localPosition - previousPosition).distance < 18) {
-        _lastTapTime = null;
-        _lastTapPosition = null;
-        _suppressTap = true;
-        widget.onDoubleSelect();
-      }
     },
-    onPointerMove: (event) {
-      final origin = _pointerDownPosition;
-      if (origin != null && (event.localPosition - origin).distance > 4) {
-        _pointerMoved = true;
-      }
-    },
-    onPointerUp: (event) {
-      if (!_pointerMoved && _pointerDownPosition != null) {
-        _lastTapTime = event.timeStamp;
-        _lastTapPosition = event.localPosition;
-      }
-      _pointerDownPosition = null;
-    },
-    onPointerCancel: (_) => _pointerDownPosition = null,
     child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       dragStartBehavior: DragStartBehavior.down,
-      onTap: () {
-        if (_suppressTap) {
-          _suppressTap = false;
-        } else {
-          widget.onSelect();
-        }
-      },
+      onTap: widget.onSelect,
+      onDoubleTap: widget.doubleSelectable ? widget.onDoubleSelect : null,
       onSecondaryTapDown: widget.onSecondaryTapDown,
-      onPanStart: (_) {
-        _movingLayer = !_spacePan;
+      onPanStart: (details) {
+        _movingLayer = details.kind != PointerDeviceKind.trackpad && !_spacePan;
         if (_movingLayer) widget.onSelect();
       },
       onPanUpdate: (details) {
@@ -3623,6 +3870,8 @@ class _SelectionOverlayState extends State<_SelectionOverlay> {
   Offset? _rotationCenter;
   double? _rotationPointerAngle;
   double? _rotationStartAngle;
+  bool _resizingWithPointer = false;
+  bool _rotatingWithPointer = false;
 
   @override
   Widget build(BuildContext context) {
@@ -3674,7 +3923,11 @@ class _SelectionOverlayState extends State<_SelectionOverlay> {
                   dragStartBehavior: DragStartBehavior.down,
                   onPanStart: _startRotation,
                   onPanUpdate: _updateRotation,
-                  onPanEnd: (_) => widget.onRotateEnd(),
+                  onPanEnd: (_) {
+                    if (_rotatingWithPointer) widget.onRotateEnd();
+                    _rotatingWithPointer = false;
+                  },
+                  onPanCancel: () => _rotatingWithPointer = false,
                   child: Column(
                     children: [
                       _Handle(round: true, displayScale: widget.displayScale),
@@ -3728,8 +3981,18 @@ class _SelectionOverlayState extends State<_SelectionOverlay> {
           key: ValueKey('resize-handle-${handle.name}'),
           behavior: HitTestBehavior.opaque,
           dragStartBehavior: DragStartBehavior.down,
-          onPanUpdate: (details) => widget.onResize(handle, details.delta),
-          onPanEnd: (_) => widget.onResizeEnd(),
+          onPanStart: (details) =>
+              _resizingWithPointer = details.kind != PointerDeviceKind.trackpad,
+          onPanUpdate: (details) {
+            if (_resizingWithPointer) {
+              widget.onResize(handle, details.delta);
+            }
+          },
+          onPanEnd: (_) {
+            if (_resizingWithPointer) widget.onResizeEnd();
+            _resizingWithPointer = false;
+          },
+          onPanCancel: () => _resizingWithPointer = false,
           child: Center(child: _Handle(displayScale: widget.displayScale)),
         ),
       ),
@@ -3737,6 +4000,8 @@ class _SelectionOverlayState extends State<_SelectionOverlay> {
   }
 
   void _startRotation(DragStartDetails details) {
+    _rotatingWithPointer = details.kind != PointerDeviceKind.trackpad;
+    if (!_rotatingWithPointer) return;
     final box = context.findRenderObject()! as RenderBox;
     _rotationCenter = box.localToGlobal(box.size.center(Offset.zero));
     _rotationPointerAngle = _angleFromCenter(details.globalPosition);
@@ -3744,6 +4009,7 @@ class _SelectionOverlayState extends State<_SelectionOverlay> {
   }
 
   void _updateRotation(DragUpdateDetails details) {
+    if (!_rotatingWithPointer) return;
     final pointerStart = _rotationPointerAngle;
     final rotationStart = _rotationStartAngle;
     if (pointerStart == null || rotationStart == null) return;
@@ -3862,15 +4128,17 @@ class _ComponentSlotEditorOverlayState
                       onSecondaryTapDown: (details) =>
                           onSecondaryTapDown(entry.key, details),
                       onPanStart: (details) {
+                        if (details.kind == PointerDeviceKind.trackpad) return;
                         _dragStartFrames[entry.key] = entry.value;
                         _dragStartPositions[entry.key] = details.globalPosition;
                       },
                       onPanUpdate: (details) {
+                        final startFrame = _dragStartFrames[entry.key];
+                        final startPosition = _dragStartPositions[entry.key];
+                        if (startFrame == null || startPosition == null) return;
                         onSelect(entry.key);
-                        final startFrame = _dragStartFrames[entry.key]!;
                         final screenDelta =
-                            details.globalPosition -
-                            _dragStartPositions[entry.key]!;
+                            details.globalPosition - startPosition;
                         onUpdate(
                           entry.key,
                           GraphicsComponentSlotFrame(
@@ -3886,9 +4154,10 @@ class _ComponentSlotEditorOverlayState
                         );
                       },
                       onPanEnd: (_) {
-                        _dragStartFrames.remove(entry.key);
+                        final edited =
+                            _dragStartFrames.remove(entry.key) != null;
                         _dragStartPositions.remove(entry.key);
-                        onEditEnd();
+                        if (edited) onEditEnd();
                       },
                       child: DecoratedBox(
                         decoration: BoxDecoration(
@@ -3923,6 +4192,10 @@ class _ComponentSlotEditorOverlayState
                                 key: Key('component-slot-resize-${entry.key}'),
                                 behavior: HitTestBehavior.opaque,
                                 onPanStart: (details) {
+                                  if (details.kind ==
+                                      PointerDeviceKind.trackpad) {
+                                    return;
+                                  }
                                   _dragStartFrames['resize:${entry.key}'] =
                                       entry.value;
                                   _dragStartPositions['resize:${entry.key}'] =
@@ -3930,10 +4203,15 @@ class _ComponentSlotEditorOverlayState
                                 },
                                 onPanUpdate: (details) {
                                   final key = 'resize:${entry.key}';
-                                  final startFrame = _dragStartFrames[key]!;
+                                  final startFrame = _dragStartFrames[key];
+                                  final startPosition =
+                                      _dragStartPositions[key];
+                                  if (startFrame == null ||
+                                      startPosition == null) {
+                                    return;
+                                  }
                                   final screenDelta =
-                                      details.globalPosition -
-                                      _dragStartPositions[key]!;
+                                      details.globalPosition - startPosition;
                                   onUpdate(
                                     entry.key,
                                     GraphicsComponentSlotFrame(
@@ -3953,13 +4231,15 @@ class _ComponentSlotEditorOverlayState
                                   );
                                 },
                                 onPanEnd: (_) {
-                                  _dragStartFrames.remove(
-                                    'resize:${entry.key}',
-                                  );
+                                  final edited =
+                                      _dragStartFrames.remove(
+                                        'resize:${entry.key}',
+                                      ) !=
+                                      null;
                                   _dragStartPositions.remove(
                                     'resize:${entry.key}',
                                   );
-                                  onEditEnd();
+                                  if (edited) onEditEnd();
                                 },
                                 child: const DecoratedBox(
                                   decoration: BoxDecoration(
