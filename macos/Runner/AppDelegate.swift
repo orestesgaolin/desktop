@@ -5,6 +5,8 @@ import FlutterMacOS
 class AppDelegate: FlutterAppDelegate {
   private var engine: FlutterEngine?
   private var edgeWindowChannel: FlutterMethodChannel?
+  private var deckWindowManagerChannel: FlutterMethodChannel?
+  private weak var deckWindow: NSWindow?
   private weak var edgeWindow: NSWindow?
   private var edgeSide = "right"
   private var edgeHitTestTimer: Timer?
@@ -291,6 +293,58 @@ class AppDelegate: FlutterAppDelegate {
     // Register them only after WindowController has enabled multiview and
     // created the first view. They remain available to every later window.
     RegisterGeneratedPlugins(registry: engine)
+    installDeckWindowManagerCompatibility(
+      engine: engine,
+      window: notification.object as? NSWindow)
+  }
+
+  /// flutter_deck uses window_manager for its fullscreen menu item. That
+  /// plugin assumes a legacy implicit Flutter view, while this application
+  /// starts the engine headlessly and creates every view with WindowController.
+  /// Handle the three methods used by flutter_deck against the actual deck
+  /// window so opening the options menu never dereferences a missing view.
+  private func installDeckWindowManagerCompatibility(
+    engine: FlutterEngine,
+    window: NSWindow?
+  ) {
+    deckWindow = window
+    let channel = FlutterMethodChannel(
+      name: "window_manager",
+      binaryMessenger: engine.binaryMessenger)
+    deckWindowManagerChannel = channel
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self, let window = self.deckWindow else {
+        result(FlutterError(
+          code: "window-unavailable",
+          message: "The presentation window is not available",
+          details: nil))
+        return
+      }
+
+      switch call.method {
+      case "ensureInitialized":
+        result(true)
+      case "isFullScreen":
+        result(window.styleMask.contains(.fullScreen))
+      case "setFullScreen":
+        guard
+          let arguments = call.arguments as? [String: Any],
+          let requested = arguments["isFullScreen"] as? Bool
+        else {
+          result(FlutterError(
+            code: "arguments",
+            message: "Missing isFullScreen value",
+            details: nil))
+          return
+        }
+        if window.styleMask.contains(.fullScreen) != requested {
+          window.toggleFullScreen(nil)
+        }
+        result(true)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
   }
 
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
