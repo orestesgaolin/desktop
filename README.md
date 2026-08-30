@@ -1,9 +1,9 @@
 # GPU Playground
 
 A macOS desktop **presentation** built with
-[flutter_deck](https://pub.dev/packages/flutter_deck), whose eighth slide
-opens out into a live 3D landscape and lands on a gallery of GPU
-rendering demos built directly on
+[flutter_deck](https://pub.dev/packages/flutter_deck), combining native
+multi-window demos, a live 3D landscape, an interactive design editor, and a
+gallery of GPU rendering demos built directly on
 [Flutter GPU](https://github.com/flutter/flutter/blob/master/engine/src/flutter/docs/impeller/Flutter-GPU.md)
 (`package:flutter_gpu`), Flutter's low-level Impeller graphics API.
 Every pixel in the gallery's viewport comes from hand-written render
@@ -12,29 +12,96 @@ no `FragmentProgram`.
 
 ## The deck
 
-`lib/src/deck/` is an ordinary flutter_deck presentation: 13 slides in
-one quiet Scandinavian layout, currently carrying lorem ipsum so the
-shape can be rehearsed before the content exists. Arrow keys drive it,
-`.` opens the slide drawer.
+`lib/src/deck/` is a 31-slide flutter_deck presentation in one quiet
+Scandinavian visual system. Arrow keys drive it,
+`⌘.` opens the slide drawer.
+
+Presentation metadata is configured once in `lib/src/deck/config.dart`.
+Its title, author, date, and place are combined into the footer shared by
+all numbered slides.
 
 | # | Slide |
 | --- | --- |
-| 1–7 | Ordinary paper slides (title, prose, statement, stepped bullets, quote) |
-| **8** | **The flyover** — two steps: a paper slide, then the 13-second flight |
-| **9** | **The GPU gallery** — the demo app below, landed on as a slide |
-| 10–13 | Ordinary paper slides again |
+| 1–4 | Opening question, live poll, desktop screenshot, and the 2020 talk |
+| **5** | **Flutter desktop timeline** — six stepped milestones from early access to multi-window |
+| 6–11 | Windowing story, detachable browser tabs, panels, and a floating edge window |
+| 12–18 | Flutter GPU, flutter_scene, and the live design editor |
+| 19–25 | Desktop apps, Flutter Zero, Flocker, and engine experimentation |
+| 26–29 | Visible's desktop development and agent workflows |
+| **30** | **Sources** — a photograph-friendly reference list |
+| **31** | **Q&A close** — the callback to the opening desktop screenshot |
 
-### Slide 8: the flyover
+### Slide 2: live poll results
 
-Slide 8 looks like every other slide in the deck. It is not: the paper is
+The poll slide fetches results as soon as it opens and refreshes them every
+two seconds while it remains visible. Bars and vote totals animate between
+responses. Pass the endpoint at build or run time:
+
+```sh
+flutter run -d macos \
+  --dart-define=POLL_RESULTS_URL=https://example.com/poll-results.json \
+  --dart-define=POLL_VOTE_URL=https://forms.gle/example \
+  --dart-define=POLL_VOTE_LABEL=vote.example.com
+```
+
+When `POLL_VOTE_URL` is set, the slide shows a continuously moving “VOTE NOW”
+strip along its lower edge. `POLL_VOTE_LABEL` is the short, audience-readable
+text shown in that strip; without it, the URL is shortened to its host and
+path. Omit `POLL_VOTE_URL` to hide the strip.
+
+The endpoint must return JSON in this shape:
+
+```json
+{
+  "title": "Which desktop platform are you targeting?",
+  "options": [
+    {"label": "macOS", "votes": 34},
+    {"label": "Windows", "votes": 28},
+    {"label": "Linux", "votes": 21}
+  ]
+}
+```
+
+`question` may replace `title`; `results` or `answers` may replace `options`;
+and each option may use `count` or `value` instead of `votes`. Set
+`POLL_RESULTS_INTERVAL_SECONDS` with another `--dart-define` to change the
+refresh interval. With no URL, the slide uses a simulated feed for rehearsal.
+
+For Google Forms, link the form to a Google Sheet and publish a small Apps
+Script web app that aggregates the answer column. A minimal handler is:
+
+```js
+function doGet() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName('Form Responses 1');
+  const lastRow = sheet.getLastRow();
+  const values = lastRow < 2 ? [] : sheet.getRange(2, 2, lastRow - 1, 1)
+      .getValues().flat().filter(String); // Change column 2 for your question.
+  const counts = values.reduce((all, answer) => {
+    all[answer] = (all[answer] || 0) + 1;
+    return all;
+  }, {});
+  return ContentService.createTextOutput(JSON.stringify({
+    title: 'Which desktop platform are you targeting?',
+    options: Object.entries(counts).map(([label, votes]) => ({label, votes})),
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+```
+
+Deploy it as a web app with read-only public access to the result endpoint.
+Keep secrets and Google credentials server-side; do not pass them through
+`--dart-define`.
+
+### Slide 15: the flyover
+
+Slide 15 looks like every other slide in the deck. It is not: the paper is
 a wash over a live `flutter_scene` view parked head-on against a monolith
 standing in a forest clearing, framed so the panel covers the viewport
 exactly. Pressing → lifts the wash and flies the camera out of the
 clearing for twenty seconds, banking over the treeline, low across a lake,
 up onto a plateau and square against a second panel in front of a
 glass-and-concrete pavilion. The wash returns as it settles, and the deck
-advances itself to slide 9 — the flight runs to the gallery with no second
-keypress. (→ during the flight cuts it short and goes there directly.)
+advances itself to the next story beat with no second keypress. Pressing →
+during the flight cuts it short and advances directly.
 
 The landscape is generated, not authored: a `FastNoiseLite` heightfield
 with lakes carved into it, ~2 600 instanced spruces and birches in two
@@ -85,6 +152,7 @@ noise inflates a captured frame past what screenshot tooling carries.
 | Scene: Still Life | [flutter_scene](https://pub.dev/packages/flutter_scene): scene graph, soft PBR + IBL, shadow-casting sun, orbit camera |
 | Scene: Animated Fox | flutter_scene glTF asset pipeline + blended skeletal animation (Khronos sample Fox) |
 | Live Editor | ShaderToy-style: type GLSL, ⌘⏎ compiles it at runtime and hot-swaps the pipeline |
+| Design Canvas | Serializable graphics editor with components, frame shaders, snapping, history, and layer hierarchy |
 
 Toolbar: play/pause, time scale, and render-scale (50/75/100 % of native
 resolution). The stats readout shows live fps and the surface size in
@@ -113,6 +181,10 @@ Widgets / GLSL tabs.
 
 - Flutter **master** channel (Flutter GPU is not available on stable).
   The repo is pinned via `.fvmrc` for [fvm](https://fvm.app) users.
+- Flutter's experimental desktop windowing feature enabled once for the SDK:
+  `fvm flutter config --enable-windowing`. The windowed browser on slide 9 uses the
+  first-party `WindowController` / `Window` API, so detached tabs share the
+  same widget tree and application state as the deck.
 - The `impellerc` binary from a Flutter SDK. It is auto-discovered from
   the `flutter` on PATH or FVM installs; set `$IMPELLERC` to override.
 - macOS with Impeller (default on master; also forced via
@@ -125,8 +197,8 @@ fvm use master          # or make sure `flutter` is the master channel
 flutter run -d macos
 ```
 
-The app opens on slide 1 of the deck. The gallery described below is
-slide 9; everything in it works exactly as it did standalone.
+The app opens on slide 1 of the deck. The gallery described below is slide 14;
+everything in it works exactly as it did standalone.
 
 ## How it works
 
@@ -142,13 +214,15 @@ slide 9; everything in it works exactly as it did standalone.
 - `lib/src/surface_view.dart` — hosts a `GpuImageSurface`: each Ticker
   tick acquires a frame texture, lets the active demo encode its render
   pass(es), presents, and paints `surface.currentImage`.
-- `lib/src/deck/` — the presentation: `deck_app.dart` (theme + slide
-  list), `slides.dart` (one class per slide kind), `page.dart` (the
+- `lib/src/deck/` — the presentation: `config.dart` (title, author, date,
+  place), `deck_app.dart` (app + theme),
+  `slides.dart` (the ordered slide list), `slides/1.dart` through
+  `slides/31.dart` (one numbered file per slide), and `page.dart` (the
   shared slide layout and type ramp).
 - `lib/src/flyover/` — `world.dart` (the procedural landscape, built once
-  at launch so slide 8 has nothing left to do), `camera_path.dart` (the
+  at launch so slide 15 has nothing left to do), `camera_path.dart` (the
   flight), `flyover_view.dart` (the widget, the wash, and the step wiring).
-- `lib/src/gallery.dart` — the demo gallery shell, hosted by slide 9.
+- `lib/src/gallery.dart` — the demo gallery shell, hosted by slide 14.
 - `lib/src/demos/` — one class per demo. 3D demos build their own
   pipelines, vertex/index buffers, and depth/MSAA attachments; the
   fullscreen shader-art demos share a 3-vertex fullscreen-triangle

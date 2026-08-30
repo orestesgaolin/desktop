@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_deck/flutter_deck.dart';
 
 import '../palette.dart';
+import 'config.dart';
 
 /// Shared chrome for every slide in the deck.
 ///
@@ -58,7 +59,7 @@ class SlidePage extends StatelessWidget {
             SizedBox(height: 24 * s),
             Row(
               children: [
-                Text('Lorem Ipsum · Flutter GPU', style: PageText.footer(s)),
+                Text(deckConfig.footerText, style: PageText.footer(s)),
                 const Spacer(),
                 Text(
                   '${deck.slideNumber.toString().padLeft(2, '0')}'
@@ -78,47 +79,53 @@ class SlidePage extends StatelessWidget {
 /// layout holds together from a laptop panel to a projector.
 abstract final class PageText {
   static TextStyle display(double s) => TextStyle(
-        fontSize: 82 * s,
-        height: 1.05,
-        fontWeight: FontWeight.w300,
-        letterSpacing: -1.6 * s,
-        color: ink,
-      );
+    fontFamily: deckFontFamily,
+    fontSize: 82 * s,
+    height: 1.05,
+    fontWeight: FontWeight.w300,
+    letterSpacing: -1.6 * s,
+    color: ink,
+  );
 
   static TextStyle title(double s) => TextStyle(
-        fontSize: 52 * s,
-        height: 1.12,
-        fontWeight: FontWeight.w400,
-        letterSpacing: -0.8 * s,
-        color: ink,
-      );
+    fontFamily: deckFontFamily,
+    fontSize: 52 * s,
+    height: 1.12,
+    fontWeight: FontWeight.w400,
+    letterSpacing: -0.8 * s,
+    color: ink,
+  );
 
   static TextStyle lead(double s) => TextStyle(
-        fontSize: 26 * s,
-        height: 1.5,
-        fontWeight: FontWeight.w400,
-        color: ink.withValues(alpha: 0.78),
-      );
+    fontFamily: deckFontFamily,
+    fontSize: 26 * s,
+    height: 1.5,
+    fontWeight: FontWeight.w400,
+    color: ink.withValues(alpha: 0.78),
+  );
 
   static TextStyle body(double s) => TextStyle(
-        fontSize: 19 * s,
-        height: 1.72,
-        fontWeight: FontWeight.w400,
-        color: ink.withValues(alpha: 0.70),
-      );
+    fontFamily: deckFontFamily,
+    fontSize: 19 * s,
+    height: 1.72,
+    fontWeight: FontWeight.w400,
+    color: ink.withValues(alpha: 0.70),
+  );
 
   static TextStyle label(double s) => TextStyle(
-        fontSize: 12.5 * s,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 2.6 * s,
-        color: spruce,
-      );
+    fontFamily: deckFontFamily,
+    fontSize: 12.5 * s,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 2.6 * s,
+    color: spruce,
+  );
 
   static TextStyle footer(double s) => TextStyle(
-        fontSize: 12.5 * s,
-        letterSpacing: 0.6 * s,
-        color: textDim,
-      );
+    fontFamily: deckFontFamily,
+    fontSize: 12.5 * s,
+    letterSpacing: 0.6 * s,
+    color: textDim,
+  );
 }
 
 /// A bulleted list in the deck's voice: a hairline square marker, generous
@@ -147,10 +154,11 @@ class PageBullets extends StatelessWidget {
                   color: clay,
                 ),
                 Expanded(
-                  child: Text(item, style: PageText.lead(s).copyWith(
-                        fontSize: 23 * s,
-                        height: 1.45,
-                      )),
+                  child: Text(
+                    item,
+                    style: PageText.lead(s)
+                        .copyWith(fontSize: 23 * s, height: 1.45),
+                  ),
                 ),
               ],
             ),

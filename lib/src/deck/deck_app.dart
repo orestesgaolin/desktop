@@ -1,29 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_deck/flutter_deck.dart';
 
 import '../flyover/world.dart';
 import '../palette.dart';
+import 'config.dart';
 import 'slides.dart';
 
 /// The presentation.
 ///
-/// Everything is an ordinary flutter_deck slide except slide 8, which owns a
-/// live flutter_scene landscape, and slide 9, which is the Flutter GPU
-/// gallery. The landscape is heavy to generate, so the build starts here at
-/// launch and runs while the audience is still on slide 1.
+/// Most slides use shared layouts; the browser, native windowing, GPU,
+/// flutter_scene, and design-editor beats remain live, full-slide demos. The
+/// landscape is heavy to generate,
+/// so the build starts here at launch and runs while the audience is still on
+/// slide 1.
 class PresentationApp extends StatefulWidget {
-  const PresentationApp({super.key});
+  const PresentationApp({super.key}) : _preloadFlyover = true;
+
+  @visibleForTesting
+  const PresentationApp.withoutFlyoverPreload({super.key})
+    : _preloadFlyover = false;
+
+  final bool _preloadFlyover;
 
   @override
   State<PresentationApp> createState() => _PresentationAppState();
 }
 
 class _PresentationAppState extends State<PresentationApp> {
+  late final List<FlutterDeckSlideWidget> _slides = buildSlides();
+
   @override
   void initState() {
     super.initState();
     // Fire and forget: the flyover slide awaits the same future.
-    FlyoverWorld.instance.ready;
+    if (widget._preloadFlyover) FlyoverWorld.instance.ready;
   }
 
   @override
@@ -32,6 +43,14 @@ class _PresentationAppState extends State<PresentationApp> {
       configuration: const FlutterDeckConfiguration(
         controls: FlutterDeckControlsConfiguration(
           presenterToolbarVisible: true,
+          shortcuts: FlutterDeckShortcutsConfiguration(
+            toggleMarker: {
+              SingleActivator(LogicalKeyboardKey.keyM, meta: true, shift: true),
+            },
+            toggleNavigationDrawer: {
+              SingleActivator(LogicalKeyboardKey.period, meta: true),
+            },
+          ),
         ),
         progressIndicator: FlutterDeckProgressIndicator.solid(
           color: spruce,
@@ -42,7 +61,10 @@ class _PresentationAppState extends State<PresentationApp> {
       lightTheme: deckTheme(),
       darkTheme: deckTheme(),
       themeMode: ThemeMode.light,
-      slides: buildSlides(),
+      // Keep the same widget instances across rebuilds. flutter_deck treats a
+      // newly-created list as a dynamic slide update and resets its router,
+      // which otherwise sends the deck back to the beginning on hot reload.
+      slides: _slides,
     );
   }
 }
@@ -54,6 +76,7 @@ FlutterDeckThemeData deckTheme() {
     useMaterial3: true,
     brightness: Brightness.light,
     scaffoldBackgroundColor: paper,
+    fontFamily: deckFontFamily,
     colorScheme: ColorScheme.fromSeed(
       seedColor: spruce,
       brightness: Brightness.light,
@@ -68,13 +91,29 @@ FlutterDeckThemeData deckTheme() {
   return FlutterDeckThemeData(
     theme: material,
     textTheme: const FlutterDeckTextTheme(
-      display: TextStyle(fontSize: 82, fontWeight: FontWeight.w300),
-      header: TextStyle(fontSize: 44, fontWeight: FontWeight.w400),
-      title: TextStyle(fontSize: 52, fontWeight: FontWeight.w400),
-      subtitle: TextStyle(fontSize: 26, fontWeight: FontWeight.w400),
-      bodyLarge: TextStyle(fontSize: 22),
-      bodyMedium: TextStyle(fontSize: 19),
-      bodySmall: TextStyle(fontSize: 13),
+      display: TextStyle(
+        fontFamily: deckFontFamily,
+        fontSize: 82,
+        fontWeight: FontWeight.w300,
+      ),
+      header: TextStyle(
+        fontFamily: deckFontFamily,
+        fontSize: 44,
+        fontWeight: FontWeight.w400,
+      ),
+      title: TextStyle(
+        fontFamily: deckFontFamily,
+        fontSize: 52,
+        fontWeight: FontWeight.w400,
+      ),
+      subtitle: TextStyle(
+        fontFamily: deckFontFamily,
+        fontSize: 26,
+        fontWeight: FontWeight.w400,
+      ),
+      bodyLarge: TextStyle(fontFamily: deckFontFamily, fontSize: 22),
+      bodyMedium: TextStyle(fontFamily: deckFontFamily, fontSize: 19),
+      bodySmall: TextStyle(fontFamily: deckFontFamily, fontSize: 13),
     ),
   ).copyWith(
     slideTheme: const FlutterDeckSlideThemeData(
