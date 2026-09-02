@@ -82,8 +82,8 @@ class _WidgetSourcePanelState extends State<WidgetSourcePanel>
   int _syntheticPointer = 0x3f000000;
 
   /// A tap on a 3D card maps back to the real widget: convert the card-local
-  /// fraction into this panel's on-screen coordinates and dispatch a real
-  /// pointer down/up pair through the normal gesture pipeline.
+  /// fraction into this panel's on-screen coordinates and dispatch a pointer
+  /// down/up pair through the Flutter view that owns the source widget.
   void _pressRealWidget(int index, Offset fraction) {
     final renderObject =
         _boundaryKeys[index].currentContext?.findRenderObject();
@@ -94,11 +94,20 @@ class _WidgetSourcePanelState extends State<WidgetSourcePanel>
     final position = topLeft +
         Offset(fraction.dx * renderObject.size.width,
             fraction.dy * renderObject.size.height);
+    final viewId = View.of(context).viewId;
     final pointer = _syntheticPointer++;
-    GestureBinding.instance
-        .handlePointerEvent(PointerDownEvent(pointer: pointer, position: position));
-    GestureBinding.instance
-        .handlePointerEvent(PointerUpEvent(pointer: pointer, position: position));
+    GestureBinding.instance.handlePointerEvent(PointerDownEvent(
+      viewId: viewId,
+      pointer: pointer,
+      position: position,
+      kind: PointerDeviceKind.touch,
+    ));
+    GestureBinding.instance.handlePointerEvent(PointerUpEvent(
+      viewId: viewId,
+      pointer: pointer,
+      position: position,
+      kind: PointerDeviceKind.touch,
+    ));
   }
 
   Future<void> _captureNext() async {

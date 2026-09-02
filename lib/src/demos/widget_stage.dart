@@ -263,26 +263,20 @@ class WidgetStageDemo extends GpuDemo {
       vm.Matrix4.rotationY(angle) *
       vm.Matrix4.diagonal3(vm.Vector3(_aspects[card] * _kHalfH, _kHalfH, 1));
 
-  /// Casts a ray through [tapUv] (uv space, y up) and intersects it with all
-  /// front-facing card quads. Returns the nearest hit as
+  /// Tests [tapUv] (uv space, y up) against the projected triangles of each
+  /// front-facing card. Returns the nearest hit as
   /// (cardIndex, fraction), where fraction is (0,0) top-left ..
   /// (1,1) bottom-right in the source widget's orientation.
   (int, Offset)? _hitTest(Offset tapUv, vm.Matrix4 viewProj, double time) {
-    final inv = vm.Matrix4.copy(viewProj);
-    if (inv.invert() == 0.0) return null;
+    const corners = <(double, double, Offset)>[
+      (-1, -1, Offset(0, 1)),
+      (1, -1, Offset(1, 1)),
+      (-1, 1, Offset(0, 0)),
+      (1, 1, Offset(1, 0)),
+    ];
+    const triangles = <(int, int, int)>[(0, 1, 2), (2, 1, 3)];
 
-    vm.Vector3? unproject(double ndcZ) {
-      final v = vm.Vector4(tapUv.dx * 2 - 1, tapUv.dy * 2 - 1, ndcZ, 1);
-      inv.transform(v);
-      if (v.w.abs() < 1e-9) return null;
-      return vm.Vector3(v.x / v.w, v.y / v.w, v.z / v.w);
-    }
-
-    final nearPoint = unproject(0);
-    final farPoint = unproject(1);
-    if (nearPoint == null || farPoint == null) return null;
-
-    var bestT = double.infinity;
+    var bestDepth = double.infinity;
     (int, Offset)? best;
     for (var i = 0; i < _kSlots; i++) {
       final card = i % kStageCardCount;
@@ -291,20 +285,92 @@ class WidgetStageDemo extends GpuDemo {
       // Only cards facing the camera accept presses.
       if (math.cos(angle) < 0.05) continue;
 
-      final invModel = vm.Matrix4.copy(_cardModel(card, angle, time));
-      if (invModel.invert() == 0.0) continue;
-      final o = invModel.transform3(nearPoint.clone());
-      final q = invModel.transform3(farPoint.clone());
-      final d = q - o;
-      if (d.z.abs() < 1e-6) continue;
-      final t = -o.z / d.z; // along the near->far segment
-      if (t <= 0 || t >= bestT) continue;
-      final x = o.x + d.x * t;
-      final y = o.y + d.y * t;
-      if (x.abs() > 1 || y.abs() > 1) continue;
-      bestT = t;
-      best = (card, Offset((x + 1) / 2, (1 - y) / 2));
+      final mvp = viewProj * _cardModel(card, angle, time);
+      final projected = <_ProjectedCardVertex>[];
+      for (final (x, y, fraction) in corners) {
+        final clip = mvp.transform(vm.Vector4(x, y, 0, 1));
+        if (clip.w <= 1e-6) {
+          projected.clear();
+          break;
+        }
+        final invW = 1 / clip.w;
+        projected.add(_ProjectedCardVertex(
+          position: Offset(
+            clip.x * invW * 0.5 + 0.5,
+            clip.y * invW * 0.5 + 0.5,
+          ),
+          fraction: fraction,
+          invW: invW,
+          depth: clip.z * invW,
+        ));
+      }
+      if (projected.length != corners.length) continue;
+
+      for (final (a, b, c) in triangles) {
+        final weights = _barycentric(tapUv, projected[a].position,
+            projected[b].position, projected[c].position);
+        if (weights == null) continue;
+
+        final vertices = [projected[a], projected[b], projected[c]];
+        final perspectiveWeights = <double>[
+          weights.$1 * vertices[0].invW,
+          weights.$2 * vertices[1].invW,
+          weights.$3 * vertices[2].invW,
+        ];
+        final weightSum = perspectiveWeights.reduce((a, b) => a + b);
+        if (weightSum.abs() < 1e-9) continue;
+
+        final fraction = Offset(
+          (perspectiveWeights[0] * vertices[0].fraction.dx +
+                  perspectiveWeights[1] * vertices[1].fraction.dx +
+                  perspectiveWeights[2] * vertices[2].fraction.dx) /
+              weightSum,
+          (perspectiveWeights[0] * vertices[0].fraction.dy +
+                  perspectiveWeights[1] * vertices[1].fraction.dy +
+                  perspectiveWeights[2] * vertices[2].fraction.dy) /
+              weightSum,
+        );
+        final depth = weights.$1 * vertices[0].depth +
+            weights.$2 * vertices[1].depth +
+            weights.$3 * vertices[2].depth;
+        if (depth >= bestDepth) continue;
+        bestDepth = depth;
+        best = (card, fraction);
+      }
     }
     return best;
   }
+}
+
+class _ProjectedCardVertex {
+  const _ProjectedCardVertex({
+    required this.position,
+    required this.fraction,
+    required this.invW,
+    required this.depth,
+  });
+
+  final Offset position;
+  final Offset fraction;
+  final double invW;
+  final double depth;
+}
+
+(double, double, double)? _barycentric(
+    Offset point, Offset a, Offset b, Offset c) {
+  final denominator =
+      (b.dy - c.dy) * (a.dx - c.dx) + (c.dx - b.dx) * (a.dy - c.dy);
+  if (denominator.abs() < 1e-9) return null;
+  final first = ((b.dy - c.dy) * (point.dx - c.dx) +
+          (c.dx - b.dx) * (point.dy - c.dy)) /
+      denominator;
+  final second = ((c.dy - a.dy) * (point.dx - c.dx) +
+          (a.dx - c.dx) * (point.dy - c.dy)) /
+      denominator;
+  final third = 1 - first - second;
+  const tolerance = -1e-6;
+  if (first < tolerance || second < tolerance || third < tolerance) {
+    return null;
+  }
+  return (first, second, third);
 }
