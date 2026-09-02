@@ -1,158 +1,70 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_deck/flutter_deck.dart';
 
-import '../../demos/edge_window_demo.dart';
-import '../../palette.dart';
-import '../page.dart';
+import '../../demos/browser_demo.dart';
+import '../../gallery.dart';
 
+/// A browser workspace with enough room to feel like a product rather than a
+/// gallery tile. Its tabs can still detach into independent native windows.
 class Slide11 extends FlutterDeckSlideWidget {
   const Slide11({super.key})
     : super(
         configuration: const FlutterDeckSlideConfiguration(
-          route: '/transparent-window',
-          title: 'Beyond the rectangle',
+          route: '/windowed-browser',
+          title: 'A browser tab can become a window',
+          showProgress: false,
+          transition: FlutterDeckTransition.fade(),
           speakerNotes:
+              'The demo runs without clicks: the local Windowing API page '
+              'detaches into a native window, revealing Flutter & Friends in '
+              'the main browser, then returns with its navigation state.\n\n'
               '[Sources]\n'
-              '- https://flutter.dev/blog/desktop-windowing-apis',
+              '- https://flutter.dev/blog/desktop-windowing-apis\n'
+              '- https://flutterfriends.dev/',
         ),
       );
 
   @override
-  Widget build(BuildContext context) => FlutterDeckSlide.custom(
-    builder: (context) => const _TransparentWindowSlide(),
-  );
+  Widget build(BuildContext context) {
+    return FlutterDeckSlide.custom(
+      builder: (context) =>
+          Theme(data: galleryTheme(), child: const _AutomatedBrowserDemo()),
+    );
+  }
 }
 
-class _TransparentWindowSlide extends StatefulWidget {
-  const _TransparentWindowSlide();
+class _AutomatedBrowserDemo extends StatefulWidget {
+  const _AutomatedBrowserDemo();
 
   @override
-  State<_TransparentWindowSlide> createState() =>
-      _TransparentWindowSlideState();
+  State<_AutomatedBrowserDemo> createState() => _AutomatedBrowserDemoState();
 }
 
-class _TransparentWindowSlideState extends State<_TransparentWindowSlide> {
-  final demo = EdgeWindowDemo.instance;
+class _AutomatedBrowserDemoState extends State<_AutomatedBrowserDemo> {
+  final BrowserWorkspace _workspace = BrowserWorkspace.instance;
+
+  BrowserTab get _apiTab => _workspace.tabs.first;
 
   @override
   void initState() {
     super.initState();
-    demo.addListener(_changed);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_workspace.isDetached(_apiTab)) {
+        _workspace.reattach(_apiTab);
+      } else {
+        _workspace.select(_apiTab);
+      }
+    });
   }
 
   @override
   void dispose() {
-    demo.removeListener(_changed);
+    if (_workspace.isDetached(_apiTab)) _workspace.reattach(_apiTab);
     super.dispose();
   }
 
-  void _changed() => setState(() {});
-
   @override
-  Widget build(BuildContext context) {
-    final s = SlidePage.scaleOf(context);
-    return SlidePage(
-      label: 'LIVE WINDOWING',
-      child: Row(
-        children: [
-          Expanded(
-            flex: 6,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Beyond the\nrectangle.', style: PageText.title(s)),
-                SizedBox(height: 28 * s),
-                SizedBox(
-                  width: 650 * s,
-                  child: Text(
-                    'A transparent Flutter popup, clipped into a living '
-                    'contour and constrained directly to the display edge.',
-                    style: PageText.body(s),
-                  ),
-                ),
-                SizedBox(height: 38 * s),
-                _LaunchButton(scale: s, open: demo.isOpen),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 4,
-            child: AspectRatio(
-              aspectRatio: .78,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: panel,
-                  border: Border.all(color: panelHi),
-                  borderRadius: BorderRadius.circular(24 * s),
-                ),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Text(
-                        'DISPLAY',
-                        style: PageText.label(s).copyWith(color: textDim),
-                      ),
-                    ),
-                    Positioned(
-                      top: 34 * s,
-                      right: 0,
-                      bottom: 34 * s,
-                      width: 112 * s,
-                      child: ClipPath(
-                        clipper: const EdgeWaveClipper(EdgeWindowSide.right),
-                        child: const ColoredBox(color: spruce),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LaunchButton extends StatefulWidget {
-  const _LaunchButton({required this.scale, required this.open});
-
-  final double scale;
-  final bool open;
-
-  @override
-  State<_LaunchButton> createState() => _LaunchButtonState();
-}
-
-class _LaunchButtonState extends State<_LaunchButton> {
-  bool hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = widget.scale;
-    return MouseRegion(
-      onEnter: (_) => setState(() => hovered = true),
-      onExit: (_) => setState(() => hovered = false),
-      child: AnimatedScale(
-        scale: hovered ? 1.025 : 1,
-        duration: const Duration(milliseconds: 180),
-        child: FilledButton.icon(
-          style: FilledButton.styleFrom(
-            backgroundColor: hovered ? clay : spruce,
-            foregroundColor: paper,
-            padding: EdgeInsets.symmetric(horizontal: 28 * s, vertical: 21 * s),
-          ),
-          onPressed: widget.open
-              ? EdgeWindowDemo.instance.close
-              : EdgeWindowDemo.instance.open,
-          icon: Icon(widget.open ? Icons.close_rounded : Icons.blur_on_rounded),
-          label: Text(
-            widget.open ? 'Close transparent view' : 'Launch transparent view',
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const BrowserWorkspaceView();
 }
 // ignore_for_file: file_names

@@ -12,7 +12,7 @@ no `FragmentProgram`.
 
 ## The deck
 
-`lib/src/deck/` is a 31-slide flutter_deck presentation in one quiet
+`lib/src/deck/` is a 33-slide flutter_deck presentation in one quiet
 Scandinavian visual system. Arrow keys drive it,
 `⌘.` opens the slide drawer.
 
@@ -22,14 +22,15 @@ all numbered slides.
 
 | # | Slide |
 | --- | --- |
-| 1–4 | Opening question, live poll, desktop screenshot, and the 2020 talk |
-| **5** | **Flutter desktop timeline** — six stepped milestones from early access to multi-window |
-| 6–11 | Windowing story, detachable browser tabs, panels, and a floating edge window |
-| 12–18 | Flutter GPU, flutter_scene, and the live design editor |
-| 19–25 | Desktop apps, Flutter Zero, Flocker, and engine experimentation |
-| 26–29 | Visible's desktop development and agent workflows |
-| **30** | **Sources** — a photograph-friendly reference list |
-| **31** | **Q&A close** — the callback to the opening desktop screenshot |
+| 1–4 | Opening question, optional live poll, desktop screenshot, and the 2020 talk |
+| 5–7 | Desktop timeline, the gap after stable, and Canonical's Ubuntu installer |
+| 8–13 | Window types, the API, shared widget tree, browser, panels, and floating window demos |
+| 14–17 | Transition flyover, Flutter GPU shaders, and flutter_scene |
+| 18–20 | UI editor introduction, demo, and build-time point |
+| 21–27 | Desktop apps, Flutter Zero, Flocker, and engine experimentation |
+| 28–31 | Visible's desktop development workflows and demo placeholders |
+| **32** | **Sources** — a photograph-friendly reference list |
+| **33** | **Q&A close** — the callback to the opening desktop screenshot |
 
 ### Slide 2: live poll results
 
@@ -68,6 +69,8 @@ The endpoint must return JSON in this shape:
 and each option may use `count` or `value` instead of `votes`. Set
 `POLL_RESULTS_INTERVAL_SECONDS` with another `--dart-define` to change the
 refresh interval. With no URL, the slide uses a simulated feed for rehearsal.
+Set `showAudiencePoll` in `lib/src/deck/slides.dart` to `false` to leave it
+out of a rehearsal or the final talk.
 
 For Google Forms, link the form to a Google Sheet and publish a small Apps
 Script web app that aggregates the answer column. A minimal handler is:
@@ -346,7 +349,7 @@ Widgets / GLSL tabs.
 - Flutter **master** channel (Flutter GPU is not available on stable).
   The repo is pinned via `.fvmrc` for [fvm](https://fvm.app) users.
 - Flutter's experimental desktop windowing feature enabled once for the SDK:
-  `fvm flutter config --enable-windowing`. The windowed browser on slide 9 uses the
+  `fvm flutter config --enable-windowing`. The windowed browser on slide 11 uses the
   first-party `WindowController` / `Window` API, so detached tabs share the
   same widget tree and application state as the deck.
 - The `impellerc` binary from a Flutter SDK. It is auto-discovered from
@@ -361,7 +364,7 @@ fvm use master          # or make sure `flutter` is the master channel
 flutter run -d macos
 ```
 
-The app opens on slide 1 of the deck. The gallery described below is slide 14;
+The app opens on slide 1 of the deck. The gallery described below is slide 16;
 everything in it works exactly as it did standalone.
 
 ## How it works
@@ -380,13 +383,13 @@ everything in it works exactly as it did standalone.
   pass(es), presents, and paints `surface.currentImage`.
 - `lib/src/deck/` — the presentation: `config.dart` (title, author, date,
   place), `deck_app.dart` (app + theme),
-  `slides.dart` (the ordered slide list), `slides/1.dart` through
-  `slides/31.dart` (one numbered file per slide), and `page.dart` (the
+  `slides.dart` (the ordered slide list), the numbered files in `slides/`
+  (one file per slide), and `page.dart` (the
   shared slide layout and type ramp).
 - `lib/src/flyover/` — `world.dart` (the procedural landscape, built once
   at launch so slide 15 has nothing left to do), `camera_path.dart` (the
   flight), `flyover_view.dart` (the widget, the wash, and the step wiring).
-- `lib/src/gallery.dart` — the demo gallery shell, hosted by slide 14.
+- `lib/src/gallery.dart` — the demo gallery shell, hosted by slide 16.
 - `lib/src/demos/` — one class per demo. 3D demos build their own
   pipelines, vertex/index buffers, and depth/MSAA attachments; the
   fullscreen shader-art demos share a 3-vertex fullscreen-triangle

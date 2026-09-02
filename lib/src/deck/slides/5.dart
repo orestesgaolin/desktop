@@ -11,7 +11,7 @@ class Slide5 extends FlutterDeckSlideWidget {
     : super(
         configuration: const FlutterDeckSlideConfiguration(
           route: '/desktop-timeline',
-          title: 'Six years of Flutter Desktop',
+          title: 'Six years of Flutter desktop',
           steps: 6,
           speakerNotes:
               'Flutter desktop milestones from early access to native '
@@ -24,6 +24,8 @@ class Slide5 extends FlutterDeckSlideWidget {
               '- https://docs.flutter.dev/release/release-notes/release-notes-3.16.0\n'
               '- https://docs.flutter.dev/release/breaking-changes/macos-windows-merged-threads\n'
               '- https://docs.flutter.dev/release/release-notes/release-notes-3.35.0\n'
+              '- https://flutter.dev/blog/whats-new-in-flutter-3-44\n'
+              '- https://flutter.dev/blog/desktop-windowing-apis\n'
               '- https://docs.flutter.dev/release/release-notes/release-notes-3.47.0',
         ),
       );
@@ -46,8 +48,8 @@ class Slide5 extends FlutterDeckSlideWidget {
     ),
     _TimelineEvent(
       date: '2024',
-      release: 'Canonical',
-      description: 'Stewardship of Linux\nand other OSes',
+      release: 'Windowing work begins',
+      description: 'Canonical and Google\nstart the new API',
     ),
     _TimelineEvent(
       date: 'AUG 2025',
@@ -55,10 +57,9 @@ class Slide5 extends FlutterDeckSlideWidget {
       description: 'Merged threads\n+ native interop',
     ),
     _TimelineEvent(
-      date: 'AUG 2026',
-      release: 'Flutter 3.47',
-      description:
-          'Impeller as default\n+ multi-window support',
+      date: 'MAY—AUG 2026',
+      release: 'Canonical + Flutter 3.47',
+      description: 'Desktop roadmap, Impeller\nand multi-window',
     ),
   ];
 

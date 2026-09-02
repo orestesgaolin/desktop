@@ -15,12 +15,60 @@ const _browserChrome = Color(0xFFF0EEE9);
 const _browserRail = Color(0xFFE3E0D8);
 const _browserAccent = Color(0xFFB55F49);
 
+const windowingApiSnippet = '''final controller = WindowController(
+  size: const Size(800, 600),
+  title: 'Inspector',
+);
+
+Window(
+  controller: controller,
+  child: const Inspector(),
+);''';
+
+const _windowingApiHtml = '''<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { margin: 0; background: #f5f3ee; color: #252a28; }
+    main { max-width: 920px; margin: 0 auto; padding: 64px 52px; }
+    p.label { color: #b55f49; font-size: 13px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { font-size: 48px; line-height: 1.08; font-weight: 500; margin: 18px 0 20px; }
+    pre { margin-top: 34px; padding: 30px 34px; overflow: auto; border-radius: 18px; background: #252a28; color: #d8dee9; font: 18px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .kw { color: #c792ea; }
+    .type { color: #82aaff; }
+    .str { color: #c3e88d; }
+    .num { color: #f78c6c; }
+    footer { margin-top: 24px; color: #777d78; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="label">Flutter desktop windowing</p>
+    <h1>Creating a native window</h1>
+    <pre><code><span class="kw">final</span> controller = <span class="type">WindowController</span>(
+  size: <span class="kw">const</span> <span class="type">Size</span>(<span class="num">800</span>, <span class="num">600</span>),
+  title: <span class="str">'Inspector'</span>,
+);
+
+<span class="type">Window</span>(
+  controller: controller,
+  child: <span class="kw">const</span> <span class="type">Inspector</span>(),
+);</code></pre>
+    <footer>flutter.dev/blog/desktop-windowing-apis</footer>
+  </main>
+</body>
+</html>''';
+
 class BrowserTab extends ChangeNotifier {
-  BrowserTab(this.id, this.fallbackTitle, this.initialUri);
+  BrowserTab(this.id, this.fallbackTitle, this.initialUri, {this.initialHtml});
 
   final int id;
   final String fallbackTitle;
   final Uri initialUri;
+  final String? initialHtml;
 
   WebViewController? _controller;
   String? title;
@@ -32,8 +80,20 @@ class BrowserTab extends ChangeNotifier {
   String get displayTitle =>
       title?.trim().isNotEmpty == true ? title!.trim() : fallbackTitle;
 
+  String get displayAddress {
+    final current = uri;
+    if (initialHtml != null &&
+        (current == null ||
+            current.scheme == 'about' ||
+            current.scheme == 'data')) {
+      return initialUri.toString();
+    }
+    return (current ?? initialUri).toString();
+  }
+
   WebViewController get controller {
-    return _controller ??= WebViewController()
+    if (_controller != null) return _controller!;
+    final next = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -62,8 +122,14 @@ class BrowserTab extends ChangeNotifier {
             }
           },
         ),
-      )
-      ..loadRequest(initialUri);
+      );
+    _controller = next;
+    if (initialHtml case final html?) {
+      unawaited(next.loadHtmlString(html, baseUrl: 'https://flutter.dev/'));
+    } else {
+      unawaited(next.loadRequest(initialUri));
+    }
+    return next;
   }
 
   Future<void> navigate(String value) async {
@@ -107,13 +173,18 @@ class BrowserWorkspace extends ChangeNotifier {
   static final BrowserWorkspace instance = BrowserWorkspace._();
 
   final List<BrowserTab> tabs = <BrowserTab>[
-    BrowserTab(1, 'Flutter', Uri.parse('https://flutter.dev')),
+    BrowserTab(
+      1,
+      'Windowing API',
+      Uri.parse('https://flutter.dev/windowing-api'),
+      initialHtml: _windowingApiHtml,
+    ),
     BrowserTab(
       2,
-      'Impeller',
-      Uri.parse('https://docs.flutter.dev/perf/impeller'),
+      'Flutter & Friends',
+      Uri.parse('https://flutterfriends.dev/'),
     ),
-    BrowserTab(3, 'Dart', Uri.parse('https://dart.dev')),
+    BrowserTab(3, 'Flutter', Uri.parse('https://flutter.dev')),
   ];
   final List<DetachedBrowserTab> _detached = <DetachedBrowserTab>[];
   int _nextId = 4;
@@ -263,9 +334,7 @@ class _BrowserSurfaceState extends State<BrowserSurface> {
   @override
   void initState() {
     super.initState();
-    _address = TextEditingController(
-      text: (widget.tab.uri ?? widget.tab.initialUri).toString(),
-    );
+    _address = TextEditingController(text: widget.tab.displayAddress);
     _addressFocus = FocusNode();
     widget.tab.addListener(_tabChanged);
   }
@@ -276,14 +345,14 @@ class _BrowserSurfaceState extends State<BrowserSurface> {
     if (oldWidget.tab != widget.tab) {
       oldWidget.tab.removeListener(_tabChanged);
       widget.tab.addListener(_tabChanged);
-      _address.text = (widget.tab.uri ?? widget.tab.initialUri).toString();
+      _address.text = widget.tab.displayAddress;
     }
   }
 
   void _tabChanged() {
     if (!mounted) return;
-    if (!_addressFocus.hasFocus && widget.tab.uri != null) {
-      _address.text = widget.tab.uri.toString();
+    if (!_addressFocus.hasFocus) {
+      _address.text = widget.tab.displayAddress;
     }
     setState(() {});
   }

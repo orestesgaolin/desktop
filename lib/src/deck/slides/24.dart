@@ -1,11 +1,11 @@
 // ignore_for_file: file_names
 import '../slide_layouts.dart';
 
-class Slide24 extends ImmersiveMediaSlideLayout {
+class Slide24 extends TitleOnlySlideLayout {
   Slide24({super.key})
     : super(
-        route: '/flocker',
-        title: 'Flocker asks: what if Flutter kept Skia?',
-        label: 'Engine experiments · Jesse Ezell',
+        route: '/buzz',
+        title: 'Buzz uses Flutter on mobile and Tauri on desktop',
+        label: 'Where are the apps?',
       );
 }

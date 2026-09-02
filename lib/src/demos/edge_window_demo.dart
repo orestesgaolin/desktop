@@ -305,6 +305,11 @@ class _PanelContent extends StatelessWidget {
           const SizedBox(height: 28),
           SegmentedButton<EdgeWindowSide>(
             showSelectedIcon: false,
+            // Treat the selected segment as a repeatable docking command. With
+            // empty selection enabled, pressing the current side reports an
+            // empty set; dock it to the current side again instead of doing
+            // nothing.
+            emptySelectionAllowed: true,
             segments: const [
               ButtonSegment(
                 value: EdgeWindowSide.left,
@@ -319,7 +324,7 @@ class _PanelContent extends StatelessWidget {
             ],
             selected: {side},
             onSelectionChanged: (value) {
-              EdgeWindowDemo.instance.dock(value.single);
+              EdgeWindowDemo.instance.dock(value.isEmpty ? side : value.single);
             },
           ),
           const Spacer(),

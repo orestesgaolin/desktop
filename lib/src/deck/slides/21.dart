@@ -4,8 +4,8 @@ import '../slide_layouts.dart';
 class Slide21 extends TitleOnlySlideLayout {
   Slide21({super.key})
     : super(
-        route: '/opencode',
-        title: 'OpenCode chose Electron. Fair.',
-        label: 'Where are the apps?',
+        route: '/where-are-the-apps',
+        title: 'Where are the desktop apps?',
+        label: 'The unanswered question',
       );
 }

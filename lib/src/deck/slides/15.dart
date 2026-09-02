@@ -18,7 +18,7 @@ class Slide15 extends FlutterDeckSlideWidget {
     : super(
         configuration: const FlutterDeckSlideConfiguration(
           route: '/flyover',
-          title: 'A scene, not just a screen',
+          title: '3D flyover',
           steps: 2,
           showProgress: false,
           transition: FlutterDeckTransition.fade(),

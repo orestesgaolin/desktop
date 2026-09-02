@@ -31,11 +31,16 @@ import 'slides/28.dart';
 import 'slides/29.dart';
 import 'slides/30.dart';
 import 'slides/31.dart';
+import 'slides/32.dart';
+import 'slides/33.dart';
+
+/// Keep the live poll available without making it part of every rehearsal.
+const showAudiencePoll = true;
 
 /// The deck, in presentation order.
 List<FlutterDeckSlideWidget> buildSlides() => [
   Slide1(),
-  Slide2(),
+  if (showAudiencePoll) Slide2(),
   Slide3(),
   Slide4(),
   Slide5(),
@@ -48,9 +53,9 @@ List<FlutterDeckSlideWidget> buildSlides() => [
   Slide12(),
   Slide13(),
   Slide14(),
-  Slide17(),
   Slide15(),
   Slide16(),
+  Slide17(),
   Slide18(),
   Slide19(),
   Slide20(),
@@ -65,4 +70,6 @@ List<FlutterDeckSlideWidget> buildSlides() => [
   Slide29(),
   Slide30(),
   Slide31(),
+  Slide32(),
+  Slide33(),
 ];

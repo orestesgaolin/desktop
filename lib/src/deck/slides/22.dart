@@ -1,11 +1,11 @@
 // ignore_for_file: file_names
 import '../slide_layouts.dart';
 
-class Slide22 extends TitleOnlySlideLayout {
+class Slide22 extends ImmersiveMediaSlideLayout {
   Slide22({super.key})
     : super(
-        route: '/buzz',
-        title: 'Buzz uses Flutter on mobile—and Tauri on desktop.',
+        route: '/desktop-apps-grid',
+        title: 'Popular Flutter desktop apps are mostly utilities',
         label: 'Where are the apps?',
       );
 }
