@@ -40,14 +40,16 @@ responses. Pass the endpoint at build or run time:
 ```sh
 flutter run -d macos \
   --dart-define=POLL_RESULTS_URL=https://example.com/poll-results.json \
-  --dart-define=POLL_VOTE_URL=https://forms.gle/example \
-  --dart-define=POLL_VOTE_LABEL=vote.example.com
+  --dart-define=POLL_VOTE_URL=https://roszkowski.dev/vote \
+  --dart-define=POLL_VOTE_LABEL=roszkowski.dev/vote
 ```
 
 When `POLL_VOTE_URL` is set, the slide shows a continuously moving “VOTE NOW”
-strip along its lower edge. `POLL_VOTE_LABEL` is the short, audience-readable
-text shown in that strip; without it, the URL is shortened to its host and
-path. Omit `POLL_VOTE_URL` to hide the strip.
+strip along its lower edge and keeps it visible on slide 3. The vote URL and
+label default to `https://roszkowski.dev/vote` and `roszkowski.dev/vote`.
+Slide 2 starts with a large QR code for 12 seconds, then moves it beside the
+live results. Override `POLL_VOTE_LABEL` to change the audience-readable text,
+or set `POLL_VOTE_URL` to an empty value to hide the strip.
 
 The endpoint must return JSON in this shape:
 

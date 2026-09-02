@@ -7,5 +7,6 @@ class Slide10 extends TitleOnlySlideLayout {
         route: '/detachable-panels',
         title: 'Panels can leave the canvas—and come back.',
         label: 'Windowing demo',
+        link: 'roszkowski.dev/panel',
       );
 }

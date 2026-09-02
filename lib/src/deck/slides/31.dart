@@ -10,5 +10,6 @@ class Slide31 extends ClosingSlideLayout {
         title: 'The capability is here. The apps are up to us.',
         subtitle: 'Questions?',
         link: deckConfig.website,
+        additionalLinks: const ['github.com/orestesgaolin/desktop'],
       );
 }

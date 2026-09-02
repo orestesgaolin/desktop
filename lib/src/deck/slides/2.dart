@@ -8,24 +8,15 @@ import 'package:flutter_deck/flutter_deck.dart';
 
 import '../../palette.dart';
 import '../page.dart';
+import '../poll_qr_code.dart';
+import '../vote_marquee.dart';
 
 const _pollEndpoint = String.fromEnvironment('POLL_RESULTS_URL');
-const _pollVoteUrl = String.fromEnvironment('POLL_VOTE_URL');
-const _pollVoteLabel = String.fromEnvironment('POLL_VOTE_LABEL');
 const _pollIntervalSeconds = int.fromEnvironment(
   'POLL_RESULTS_INTERVAL_SECONDS',
   defaultValue: 2,
 );
 final _pollInterval = Duration(seconds: math.max(1, _pollIntervalSeconds));
-
-String get _voteLinkLabel {
-  if (_pollVoteLabel.trim().isNotEmpty) return _pollVoteLabel.trim();
-  if (_pollVoteUrl.trim().isEmpty) return '';
-  final uri = Uri.tryParse(_pollVoteUrl.trim());
-  if (uri == null || uri.host.isEmpty) return _pollVoteUrl.trim();
-  final path = uri.path == '/' ? '' : uri.path.replaceFirst(RegExp(r'/$'), '');
-  return '${uri.host}$path';
-}
 
 /// A live, data-driven audience poll.
 ///
@@ -37,8 +28,7 @@ class Slide2 extends FlutterDeckSlideWidget {
         configuration: const FlutterDeckSlideConfiguration(
           route: '/daily-desktop-apps',
           title: 'How many Flutter desktop apps do you use every day?',
-          speakerNotes:
-              '',
+          speakerNotes: '',
         ),
       );
 
@@ -108,6 +98,7 @@ class _PollResultsView extends StatefulWidget {
 }
 
 class _PollResultsViewState extends State<_PollResultsView> {
+  static const _qrOnlyDuration = Duration(seconds: 12);
   static const _demoTitle =
       'How many Flutter desktop apps do you use every day?';
   static const _demoLabels = ['None', 'One', 'Two or three', 'More than three'];
@@ -115,9 +106,11 @@ class _PollResultsViewState extends State<_PollResultsView> {
   final _random = math.Random();
   HttpClient? _client;
   Timer? _timer;
+  Timer? _qrTimer;
   PollSnapshot? _snapshot;
   Object? _lastError;
   bool _fetching = false;
+  bool _showResults = false;
   var _demoVotes = <int>[42, 18, 7, 2];
 
   bool get _isDemo => _pollEndpoint.trim().isEmpty;
@@ -130,11 +123,15 @@ class _PollResultsViewState extends State<_PollResultsView> {
     }
     unawaited(_refresh(initial: true));
     _timer = Timer.periodic(_pollInterval, (_) => unawaited(_refresh()));
+    _qrTimer = Timer(_qrOnlyDuration, () {
+      if (mounted) setState(() => _showResults = true);
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _qrTimer?.cancel();
     _client?.close(force: true);
     super.dispose();
   }
@@ -194,28 +191,22 @@ class _PollResultsViewState extends State<_PollResultsView> {
   @override
   Widget build(BuildContext context) {
     final s = SlidePage.scaleOf(context);
-    final voteLabel = _voteLinkLabel;
     return SlidePage(
       label: 'Audience pulse',
       child: Column(
         children: [
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              child: _snapshot == null
-                  ? _PollLoadingState(error: _lastError, scale: s)
-                  : _PollChart(
-                      key: const ValueKey('poll-chart'),
-                      snapshot: _snapshot!,
-                      isDemo: _isDemo,
-                      reconnecting: _lastError != null,
-                      scale: s,
-                    ),
+            child: _PollStage(
+              showResults: _showResults,
+              snapshot: _snapshot,
+              error: _lastError,
+              isDemo: _isDemo,
+              scale: s,
             ),
           ),
-          if (voteLabel.isNotEmpty) ...[
+          if (pollVoteLinkLabel.isNotEmpty) ...[
             SizedBox(height: 18 * s),
-            _VoteMarquee(label: voteLabel, url: _pollVoteUrl.trim(), scale: s),
+            VoteMarquee(scale: s),
           ],
         ],
       ),
@@ -223,116 +214,71 @@ class _PollResultsViewState extends State<_PollResultsView> {
   }
 }
 
-class _VoteMarquee extends StatefulWidget {
-  const _VoteMarquee({
-    required this.label,
-    required this.url,
+class _PollStage extends StatelessWidget {
+  const _PollStage({
+    required this.showResults,
+    required this.snapshot,
+    required this.error,
+    required this.isDemo,
     required this.scale,
   });
 
-  final String label;
-  final String url;
+  final bool showResults;
+  final PollSnapshot? snapshot;
+  final Object? error;
+  final bool isDemo;
   final double scale;
 
   @override
-  State<_VoteMarquee> createState() => _VoteMarqueeState();
-}
-
-class _VoteMarqueeState extends State<_VoteMarquee>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 18),
-    );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.stop();
-    } else if (!_controller.isAnimating) {
-      _controller.repeat();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final style = TextStyle(
-      fontSize: 18 * widget.scale,
-      height: 1,
-      fontWeight: FontWeight.w600,
-      letterSpacing: 1.5 * widget.scale,
-      color: paper,
-    );
-    final phrase = 'VOTE NOW  ↗  ${widget.label}      ';
+    const duration = Duration(milliseconds: 850);
+    const curve = Curves.easeInOutCubic;
+    final qrWidth = (showResults ? 270 : 420) * scale;
+    final qrHeight = (showResults ? 315 : 465) * scale;
 
-    return Semantics(
-      label: 'Vote at ${widget.url}',
-      child: Container(
-        height: 54 * widget.scale,
-        color: spruce,
-        child: ClipRect(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final phrasePainter = TextPainter(
-                text: TextSpan(text: phrase, style: style),
-                textDirection: TextDirection.ltr,
-                maxLines: 1,
-              )..layout();
-              final repetitions = math.max(
-                2,
-                (constraints.maxWidth / phrasePainter.width).ceil(),
-              );
-              final segment = List.filled(repetitions, phrase).join();
-              final segmentPainter = TextPainter(
-                text: TextSpan(text: segment, style: style),
-                textDirection: TextDirection.ltr,
-                maxLines: 1,
-              )..layout();
-              final segmentWidth = segmentPainter.width;
-
-              Widget copy(double left) => Positioned(
-                left: left,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: ExcludeSemantics(
-                    child: Text(
-                      segment,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: style,
-                    ),
-                  ),
+    return Stack(
+      children: [
+        Positioned.fill(
+          right: 320 * scale,
+          child: IgnorePointer(
+            ignoring: !showResults,
+            child: AnimatedSlide(
+              duration: duration,
+              curve: curve,
+              offset: showResults ? Offset.zero : const Offset(-0.04, 0),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 650),
+                curve: Curves.easeOut,
+                opacity: showResults ? 1 : 0,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 350),
+                  child: snapshot == null
+                      ? _PollLoadingState(error: error, scale: scale)
+                      : _PollChart(
+                          key: const ValueKey('poll-chart'),
+                          snapshot: snapshot!,
+                          isDemo: isDemo,
+                          reconnecting: error != null,
+                          scale: scale,
+                        ),
                 ),
-              );
-
-              return AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  final offset = _controller.value * segmentWidth;
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [copy(-offset), copy(segmentWidth - offset)],
-                  );
-                },
-              );
-            },
+              ),
+            ),
           ),
         ),
-      ),
+        AnimatedAlign(
+          duration: duration,
+          curve: curve,
+          alignment: showResults ? Alignment.centerRight : Alignment.center,
+          child: AnimatedContainer(
+            duration: duration,
+            curve: curve,
+            width: qrWidth,
+            height: qrHeight,
+            child: PollQrCode(scale: scale),
+          ),
+        ),
+      ],
     );
   }
 }

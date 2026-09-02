@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_deck/flutter_deck.dart';
 
+import '../page.dart';
 import '../slide_layouts.dart';
+import '../vote_marquee.dart';
 
 class Slide3 extends ImmersiveMediaSlideLayout {
   Slide3({super.key})
@@ -35,6 +37,9 @@ class Slide3 extends ImmersiveMediaSlideLayout {
             );
           },
         ),
+        footerBuilder: (context) => pollVoteLinkLabel.isEmpty
+            ? const SizedBox.shrink()
+            : VoteMarquee(scale: SlidePage.scaleOf(context)),
       );
 }
 // ignore_for_file: file_names

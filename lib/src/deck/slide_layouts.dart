@@ -64,6 +64,7 @@ class TitleOnlySlideLayout extends FlutterDeckSlideWidget {
     required String route,
     required this.title,
     this.label,
+    this.link,
   }) : super(
          configuration: FlutterDeckSlideConfiguration(
            route: route,
@@ -73,6 +74,7 @@ class TitleOnlySlideLayout extends FlutterDeckSlideWidget {
 
   final String title;
   final String? label;
+  final String? link;
 
   @override
   Widget build(BuildContext context) => FlutterDeckSlide.custom(
@@ -80,12 +82,23 @@ class TitleOnlySlideLayout extends FlutterDeckSlideWidget {
       final s = SlidePage.scaleOf(context);
       return SlidePage(
         label: label,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: 1100 * s,
-            child: Text(title, style: PageText.title(s)),
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 1100 * s,
+              child: Text(title, style: PageText.title(s)),
+            ),
+            if (link?.trim().isNotEmpty ?? false) ...[
+              SizedBox(height: 26 * s),
+              Text(
+                link!,
+                style: PageText.lead(s)
+                    .copyWith(color: clay, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ],
         ),
       );
     },
@@ -101,6 +114,7 @@ class ImmersiveMediaSlideLayout extends FlutterDeckSlideWidget {
     required this.title,
     this.label,
     this.mediaBuilder,
+    this.footerBuilder,
     this.aspectRatio = 16 / 9,
     this.steps = 1,
     String speakerNotes = '',
@@ -116,6 +130,7 @@ class ImmersiveMediaSlideLayout extends FlutterDeckSlideWidget {
   final String title;
   final String? label;
   final WidgetBuilder? mediaBuilder;
+  final WidgetBuilder? footerBuilder;
   final double aspectRatio;
   final int steps;
 
@@ -142,6 +157,10 @@ class ImmersiveMediaSlideLayout extends FlutterDeckSlideWidget {
                   ),
                 ),
               ),
+            ],
+            if (footerBuilder != null) ...[
+              SizedBox(height: 18 * s),
+              footerBuilder!(context),
             ],
           ],
         ),
@@ -415,6 +434,7 @@ class ClosingSlideLayout extends FlutterDeckSlideWidget {
     required this.title,
     this.subtitle,
     this.link,
+    this.additionalLinks = const [],
   }) : super(
          configuration: FlutterDeckSlideConfiguration(
            route: route,
@@ -425,6 +445,7 @@ class ClosingSlideLayout extends FlutterDeckSlideWidget {
   final String title;
   final String? subtitle;
   final String? link;
+  final List<String> additionalLinks;
 
   @override
   Widget build(BuildContext context) => FlutterDeckSlide.custom(
@@ -454,6 +475,15 @@ class ClosingSlideLayout extends FlutterDeckSlideWidget {
                     .copyWith(color: clay, fontSize: 34 * s),
               ),
             ],
+            for (final additionalLink in additionalLinks)
+              if (additionalLink.trim().isNotEmpty) ...[
+                SizedBox(height: 12 * s),
+                Text(
+                  additionalLink,
+                  style: PageText.lead(s)
+                      .copyWith(color: clay, fontWeight: FontWeight.w600),
+                ),
+              ],
           ],
         ),
       );

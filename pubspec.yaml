@@ -20,6 +20,7 @@ dependencies:
     path: ../mermaid/packages/mermaid_core
   mermaid_flutter:
     path: ../mermaid/packages/mermaid_flutter
+  qr: ^4.0.0
   vector_math: ^2.4.2
   webview_flutter: ^4.14.1
 
