@@ -5,7 +5,7 @@ class Slide21 extends TitleOnlySlideLayout {
   Slide21({super.key})
     : super(
         route: '/where-are-the-apps',
-        title: 'Where are the desktop apps?',
-        label: 'The unanswered question',
+        title: 'So - where are the desktop apps?',
+        label: '???',
       );
 }

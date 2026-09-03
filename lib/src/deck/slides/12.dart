@@ -5,7 +5,7 @@ class Slide12 extends TitleOnlySlideLayout {
   Slide12({super.key})
     : super(
         route: '/detachable-panels',
-        title: 'Panels can detach into native windows',
+        title: 'Demo: IDE-style panels',
         label: 'Windowing demo',
         link: 'roszkowski.dev/panel',
       );

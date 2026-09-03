@@ -3,8 +3,5 @@ import '../slide_layouts.dart';
 
 class Slide20 extends TitleOnlySlideLayout {
   Slide20({super.key})
-    : super(
-        route: '/days-not-months',
-        title: 'The editor took a few days to build',
-      );
+    : super(route: '/days-not-months', title: 'The editor took a day to build');
 }

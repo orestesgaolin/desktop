@@ -43,7 +43,7 @@ class Slide10 extends FlutterDeckSlideWidget {
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                'Source: https://flutter.dev/blog/desktop-windowing-apis',
+                'Source: https://flutter.dev/blog/desktop-windowing-apis; Mermaid: package:mermaid_flutter',
                 style: PageText.footer(s),
               ),
             ),

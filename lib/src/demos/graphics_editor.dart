@@ -24,7 +24,11 @@ enum _LayerKind { rectangle, ellipse, line, text, image, component }
 
 enum _LayerFilter { none, mono, sepia, warm }
 
-enum _CanvasEffect { none, paper, halftone, ripple, custom }
+enum _CanvasEffect { none, paper, halftone, ripple, dithering, water, custom }
+
+enum _EditorLayoutMode { wide, compact, tablet, phone }
+
+enum _EditorSurface { canvas, add, layers, inspector, history }
 
 enum _GuideAxis { horizontal, vertical }
 
@@ -179,9 +183,6 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
     XTypeGroup(label: 'GPU design document', extensions: ['gpudoc', 'json']),
   ];
 
-  final _prompt = TextEditingController(
-    text: 'Design a mobile app with a header, cards, and bottom navigation',
-  );
   late final TextEditingController _shaderSource = TextEditingController(
     text: _effectSource(_CanvasEffect.halftone),
   );
@@ -233,6 +234,15 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
   Size _workspaceSize = Size.zero;
   int? _viewportPanPointer;
   Offset? _viewportPanPosition;
+  _EditorSurface _editorSurface = _EditorSurface.canvas;
+  bool _touchScaleActive = false;
+  bool _selectionTransformActive = false;
+  double _touchScaleStartZoom = 1;
+  Offset _touchScaleSceneFocal = Offset.zero;
+  double _touchScaleStartDistance = 1;
+  final Map<int, Offset> _touchPointers = {};
+  final Map<int, Offset> _touchStartPositions = {};
+  bool _touchPanActive = false;
 
   _DesignLayer? get _selected {
     for (final layer in _layers) {
@@ -339,7 +349,6 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
   @override
   void dispose() {
     _historyPlaybackTimer?.cancel();
-    _prompt.dispose();
     _shaderSource.dispose();
     _inlineEditor.dispose();
     _renameFocus.dispose();
@@ -442,12 +451,21 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
         _DesignLayer(
           id: 'starter-card-focus',
           name: 'Focus card',
-          kind: _LayerKind.rectangle,
+          kind: _LayerKind.image,
           position: const Offset(276, 238),
           size: const Size(138, 104),
-          color: const Color(0xFFFFD76A),
+          color: Colors.white,
           borderRadius: 22,
+          imageSource: const GraphicsImageSource.uri(
+            uri: 'asset:assets/images/starry-night.jpg',
+            mimeType: 'image/jpeg',
+          ),
           parentId: appBackgroundId,
+          properties: const {
+            'fit': 'cover',
+            'imageName': 'starry-night.jpg',
+            'shaderEffect': 'dithering',
+          },
         ),
         _DesignLayer(
           id: 'starter-card-focus-copy',
@@ -455,20 +473,29 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           kind: _LayerKind.text,
           position: const Offset(290, 250),
           size: const Size(110, 80),
-          color: const Color(0xFF27231A),
-          text: 'Focus\n\nLorem ipsum dolor sit amet.',
+          color: const Color(0xFFFFFFFF),
+          text: 'Dither\n\nStarry Night study.',
           parentId: 'starter-card-focus',
-          properties: const {'fontSize': 10.0},
+          properties: const {'fontSize': 10.0, 'bold': true},
         ),
         _DesignLayer(
           id: 'starter-card-progress',
           name: 'Progress card',
-          kind: _LayerKind.rectangle,
+          kind: _LayerKind.image,
           position: const Offset(426, 238),
           size: const Size(138, 104),
-          color: const Color(0xFFB8DED7),
+          color: Colors.white,
           borderRadius: 22,
+          imageSource: const GraphicsImageSource.uri(
+            uri: 'asset:assets/images/great-wave.jpg',
+            mimeType: 'image/jpeg',
+          ),
           parentId: appBackgroundId,
+          properties: const {
+            'fit': 'cover',
+            'imageName': 'great-wave.jpg',
+            'shaderEffect': 'water',
+          },
         ),
         _DesignLayer(
           id: 'starter-card-progress-copy',
@@ -477,9 +504,9 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           position: const Offset(440, 250),
           size: const Size(110, 80),
           color: const Color(0xFF16322D),
-          text: 'Progress\n\nLorem ipsum dolor sit amet.',
+          text: 'Water\n\nGreat Wave study.',
           parentId: 'starter-card-progress',
-          properties: const {'fontSize': 10.0},
+          properties: const {'fontSize': 10.0, 'bold': true},
         ),
         _DesignLayer(
           id: 'starter-activity-card',
@@ -682,14 +709,22 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
     copyVisibleState(const ['Featured label']);
     copyVisibleState(const ['Featured title']);
     copyVisibleState(const ['Featured copy']);
-    copyVisibleState(const [
-      'Focus card',
-    ], adjust: (nodes) => makeDraft(nodes, 'Focus card', y: 238));
+    copyVisibleState(
+      const ['Focus card'],
+      adjust: (nodes) {
+        makeDraft(nodes, 'Focus card', y: 238);
+        named(nodes, 'Focus card').properties['shaderEffect'] = 'none';
+      },
+    );
     copyVisibleState(const []); // 16. Place and style the focus card.
     copyVisibleState(const ['Focus card copy']);
-    copyVisibleState(const [
-      'Progress card',
-    ], adjust: (nodes) => makeDraft(nodes, 'Progress card', y: 238));
+    copyVisibleState(
+      const ['Progress card'],
+      adjust: (nodes) {
+        makeDraft(nodes, 'Progress card', y: 238);
+        named(nodes, 'Progress card').properties['shaderEffect'] = 'none';
+      },
+    );
     copyVisibleState(const []); // 19. Place and style the progress card.
     copyVisibleState(const ['Progress card copy']);
     copyVisibleState(const [
@@ -712,18 +747,6 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
     assert(states.length == 30);
     assert(states.last.encode(pretty: false) == finished.encode(pretty: false));
     return states;
-  }
-
-  void _generateFromPrompt() {
-    FocusManager.instance.primaryFocus?.unfocus();
-    _commitMutation(() {
-      _buildStarterComposition();
-      final prompt = _prompt.text.toLowerCase();
-      if (prompt.contains('pink')) {
-        _layers.firstWhere((layer) => layer.id == _selectedId).color =
-            const Color(0xFFE85D9E);
-      }
-    });
   }
 
   void _addLayer(_LayerKind kind) {
@@ -1662,6 +1685,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
             _runDocumentShortcut(_deleteSelected),
         const SingleActivator(LogicalKeyboardKey.backspace): () =>
             _runDocumentShortcut(_deleteSelected),
+        const SingleActivator(LogicalKeyboardKey.escape): _closeEditorSurface,
       },
       child: Focus(
         autofocus: true,
@@ -1669,24 +1693,446 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           color: _shell,
           child: DefaultTextStyle(
             style: const TextStyle(color: Colors.white, fontSize: 12),
-            child: Column(
-              children: [
-                _buildTopBar(),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildLayersPanel(),
-                      Expanded(child: _buildWorkspace()),
-                      _buildInspector(),
-                    ],
-                  ),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final mode = _layoutModeFor(constraints.maxWidth);
+                return Column(
+                  children: [
+                    mode == _EditorLayoutMode.wide
+                        ? _buildTopBar()
+                        : _buildCompactTopBar(mode),
+                    Expanded(child: _buildEditorBody(mode)),
+                  ],
+                );
+              },
             ),
           ),
         ),
       ),
+    );
+  }
+
+  _EditorLayoutMode _layoutModeFor(double width) {
+    if (width >= 1280) return _EditorLayoutMode.wide;
+    if (width >= 900) return _EditorLayoutMode.compact;
+    if (width >= 600) return _EditorLayoutMode.tablet;
+    return _EditorLayoutMode.phone;
+  }
+
+  Widget _buildEditorBody(_EditorLayoutMode mode) {
+    if (mode == _EditorLayoutMode.wide) {
+      return Row(
+        key: const Key('wide-editor-layout'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildLayersPanel(),
+          Expanded(child: _buildWorkspace()),
+          _buildInspector(),
+        ],
+      );
+    }
+    if (mode == _EditorLayoutMode.compact) {
+      return Row(
+        key: const Key('compact-editor-layout'),
+        children: [
+          _buildSideRail(),
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(child: _buildWorkspace(compact: true)),
+                if (_editorSurface != _EditorSurface.canvas) ...[
+                  Positioned.fill(
+                    child: GestureDetector(
+                      key: const Key('panel-scrim'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _closeEditorSurface,
+                      child: ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.18),
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      key: const Key('editor-overlay-panel'),
+                      width: 340,
+                      child: _buildActivePanel(),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      key: Key('${mode.name}-editor-layout'),
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) => Stack(
+              children: [
+                Positioned.fill(
+                  child: _buildWorkspace(
+                    compact: true,
+                    useTouchTargets: true,
+                    phoneHandles: mode == _EditorLayoutMode.phone,
+                  ),
+                ),
+                if (_editorSurface != _EditorSurface.canvas) ...[
+                  Positioned.fill(
+                    child: GestureDetector(
+                      key: const Key('panel-scrim'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _closeEditorSurface,
+                      child: ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.36),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    key: const Key('editor-bottom-sheet'),
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height:
+                        constraints.maxHeight *
+                        (_editorSurface == _EditorSurface.inspector
+                            ? 0.78
+                            : 0.62),
+                    child: _buildActivePanel(sheet: true),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        _buildMobileToolbar(),
+      ],
+    );
+  }
+
+  void _showEditorSurface(_EditorSurface surface) {
+    setState(() {
+      _editorSurface = _editorSurface == surface
+          ? _EditorSurface.canvas
+          : surface;
+    });
+  }
+
+  void _closeEditorSurface() {
+    if (_editorSurface == _EditorSurface.canvas) return;
+    setState(() => _editorSurface = _EditorSurface.canvas);
+  }
+
+  Widget _buildCompactTopBar(_EditorLayoutMode mode) {
+    return Container(
+      key: const Key('compact-top-bar'),
+      height: 54,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: const BoxDecoration(
+        color: _panel,
+        border: Border(bottom: BorderSide(color: _line)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.layers_rounded, size: 19, color: _accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _documentName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+          ),
+          _toolButton(
+            Icons.undo_rounded,
+            'Undo',
+            _undo,
+            key: const Key('compact-undo-document'),
+            enabled: _history.canUndo && !_isPlayingHistory,
+          ),
+          _toolButton(
+            Icons.redo_rounded,
+            'Redo',
+            _redo,
+            key: const Key('compact-redo-document'),
+            enabled: _history.canRedo && !_isPlayingHistory,
+          ),
+          if (mode != _EditorLayoutMode.phone)
+            _toolButton(
+              Icons.save_outlined,
+              'Save document',
+              _saveDocument,
+              key: const Key('compact-save-document'),
+            ),
+          PopupMenuButton<String>(
+            key: const Key('compact-document-menu'),
+            tooltip: 'Document actions',
+            color: _menuSurface,
+            onSelected: (value) {
+              switch (value) {
+                case 'import':
+                  _importDocument();
+                case 'save':
+                  _saveDocument();
+                case 'play':
+                  _toggleHistoryPlayback();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'import', child: Text('Import')),
+              const PopupMenuItem(value: 'save', child: Text('Save')),
+              PopupMenuItem(
+                value: 'play',
+                child: Text(
+                  _isPlayingHistory ? 'Stop autoplay' : 'Play history',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSideRail() {
+    return Container(
+      key: const Key('editor-side-rail'),
+      width: 52,
+      color: _panel,
+      child: Column(
+        children: [
+          _railButton(Icons.add_rounded, 'Add', _EditorSurface.add),
+          _railButton(Icons.layers_outlined, 'Layers', _EditorSurface.layers),
+          _railButton(Icons.tune_rounded, 'Inspect', _EditorSurface.inspector),
+          _railButton(Icons.history_rounded, 'History', _EditorSurface.history),
+          const Spacer(),
+          IconButton(
+            key: const Key('compact-fit-canvas'),
+            tooltip: 'Scale canvas to fit',
+            onPressed: _fitCanvas,
+            icon: const Icon(Icons.fit_screen_outlined, size: 19),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _railButton(IconData icon, String tooltip, _EditorSurface surface) {
+    final selected = _editorSurface == surface;
+    return IconButton(
+      key: Key('rail-${surface.name}'),
+      tooltip: tooltip,
+      onPressed: () => _showEditorSurface(surface),
+      style: IconButton.styleFrom(
+        backgroundColor: selected
+            ? _accent.withValues(alpha: 0.2)
+            : Colors.transparent,
+      ),
+      icon: Icon(icon, color: selected ? _accent : _muted),
+    );
+  }
+
+  Widget _buildMobileToolbar() {
+    final selected = _selected;
+    return Container(
+      key: const Key('mobile-editor-toolbar'),
+      height: 64,
+      decoration: const BoxDecoration(
+        color: _panel,
+        border: Border(top: BorderSide(color: _line)),
+      ),
+      child: Row(
+        children: selected == null
+            ? [
+                _mobileAction(Icons.add_rounded, 'Add', () {
+                  _showEditorSurface(_EditorSurface.add);
+                }),
+                _mobileAction(Icons.layers_outlined, 'Layers', () {
+                  _showEditorSurface(_EditorSurface.layers);
+                }),
+                _mobileAction(Icons.fit_screen_outlined, 'Fit', _fitCanvas),
+                _mobileAction(Icons.undo_rounded, 'Undo', _undo),
+              ]
+            : [
+                _mobileAction(Icons.tune_rounded, 'Inspect', () {
+                  _showEditorSurface(_EditorSurface.inspector);
+                }),
+                _mobileAction(Icons.add_rounded, 'Add', () {
+                  _showEditorSurface(_EditorSurface.add);
+                }),
+                _mobileAction(Icons.copy_rounded, 'Duplicate', () {
+                  _runDocumentShortcut(() => _duplicateLayer(selected));
+                }),
+                _mobileAction(Icons.delete_outline, 'Delete', () {
+                  _runDocumentShortcut(_deleteSelected);
+                }),
+                _mobileAction(Icons.layers_outlined, 'Layers', () {
+                  _showEditorSurface(_EditorSurface.layers);
+                }),
+              ],
+      ),
+    );
+  }
+
+  Widget _mobileAction(IconData icon, String label, VoidCallback action) {
+    return Expanded(
+      child: InkWell(
+        key: Key('mobile-${label.toLowerCase()}'),
+        onTap: action,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20, color: _muted),
+            const SizedBox(height: 3),
+            Text(label, style: const TextStyle(color: _muted, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivePanel({bool sheet = false}) {
+    final child = switch (_editorSurface) {
+      _EditorSurface.add => _buildAddPanel(),
+      _EditorSurface.layers => _buildLayersPanel(width: double.infinity),
+      _EditorSurface.inspector => _buildInspector(width: double.infinity),
+      _EditorSurface.history => _buildHistoryPanel(),
+      _EditorSurface.canvas => const SizedBox.shrink(),
+    };
+    return Material(
+      color: _panel,
+      elevation: 18,
+      borderRadius: sheet
+          ? const BorderRadius.vertical(top: Radius.circular(18))
+          : BorderRadius.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          if (sheet)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _muted.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          Row(
+            children: [
+              const Spacer(),
+              IconButton(
+                key: const Key('close-editor-panel'),
+                tooltip: 'Close panel',
+                onPressed: _closeEditorSurface,
+                icon: const Icon(Icons.close_rounded, size: 19),
+              ),
+            ],
+          ),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddPanel() {
+    return ListView(
+      key: const Key('add-panel'),
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+      children: [
+        const _PanelHeading('ADD ELEMENT'),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _addPanelButton('Rectangle', Icons.crop_square_rounded, () {
+              _addLayer(_LayerKind.rectangle);
+            }),
+            _addPanelButton('Ellipse', Icons.circle_outlined, () {
+              _addLayer(_LayerKind.ellipse);
+            }),
+            _addPanelButton('Line', Icons.horizontal_rule_rounded, () {
+              _addLayer(_LayerKind.line);
+            }),
+            _addPanelButton('Text', Icons.title_rounded, () {
+              _addLayer(_LayerKind.text);
+            }),
+            _addPanelButton('Image', Icons.image_outlined, _addImage),
+            _addPanelButton('Component', Icons.widgets_outlined, () {
+              _addLayer(_LayerKind.component);
+            }),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _addPanelButton(String label, IconData icon, VoidCallback action) {
+    return SizedBox(
+      width: 132,
+      child: FilledButton.tonalIcon(
+        key: Key('mobile-add-${label.toLowerCase()}'),
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+        onPressed: () {
+          action();
+          _closeEditorSurface();
+        },
+        icon: Icon(icon, size: 18),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.fade),
+      ),
+    );
+  }
+
+  Widget _buildHistoryPanel() {
+    return ListView(
+      key: const Key('history-panel'),
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+      children: [
+        const _PanelHeading('DOCUMENT HISTORY'),
+        const SizedBox(height: 14),
+        Text(
+          '${_history.currentIndex + 1} of ${_history.length} states',
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _history.canUndo ? _undo : null,
+                icon: const Icon(Icons.undo_rounded),
+                label: const Text('Undo'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _history.canRedo ? _redo : null,
+                icon: const Icon(Icons.redo_rounded),
+                label: const Text('Redo'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        FilledButton.icon(
+          key: const Key('responsive-play-history'),
+          onPressed: _history.length > 1 ? _toggleHistoryPlayback : null,
+          icon: Icon(
+            _isPlayingHistory ? Icons.stop_rounded : Icons.play_arrow_rounded,
+          ),
+          label: Text(_isPlayingHistory ? 'Stop autoplay' : 'Play history'),
+        ),
+      ],
     );
   }
 
@@ -1808,7 +2254,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
             const SizedBox(width: 8),
           ],
           Container(
-            width: 360,
+            width: 250,
             height: 36,
             decoration: BoxDecoration(
               color: _shell,
@@ -1819,25 +2265,39 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
               children: [
                 const Padding(
                   padding: EdgeInsets.only(left: 10),
-                  child: Icon(Icons.auto_awesome, size: 15, color: _accent),
+                  child: Icon(Icons.language_rounded, size: 15, color: _accent),
                 ),
-                Expanded(
-                  child: TextField(
-                    key: const Key('design-prompt'),
-                    controller: _prompt,
-                    onSubmitted: (_) => _generateFromPrompt(),
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 9),
-                    ),
+                const SizedBox(width: 9),
+                const Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'WEB DEMO',
+                        style: TextStyle(
+                          color: _muted,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                      SizedBox(height: 1),
+                      SelectableText(
+                        'roszkowski.dev/paperplane',
+                        maxLines: 1,
+                        style: TextStyle(color: Colors.white, fontSize: 11.5),
+                      ),
+                    ],
                   ),
                 ),
-                TextButton(
-                  key: const Key('generate-design'),
-                  onPressed: _generateFromPrompt,
-                  child: const Text('Create'),
+                const Padding(
+                  padding: EdgeInsets.only(right: 10),
+                  child: Icon(
+                    Icons.north_east_rounded,
+                    size: 14,
+                    color: _muted,
+                  ),
                 ),
               ],
             ),
@@ -1863,9 +2323,10 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
     );
   }
 
-  Widget _buildLayersPanel() {
+  Widget _buildLayersPanel({double width = 190}) {
     return Container(
-      width: 190,
+      key: width == 190 ? const Key('wide-layers-panel') : null,
+      width: width,
       color: _panel,
       padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
       child: Column(
@@ -2186,12 +2647,36 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
           ));
 
   void _handleViewportPointerDown(PointerDownEvent event) {
+    if (event.kind == PointerDeviceKind.touch) {
+      if (_selectionTransformActive) return;
+      _touchPointers[event.pointer] = event.localPosition;
+      _touchStartPositions[event.pointer] = event.localPosition;
+      if (_touchPointers.length == 2) _startTouchNavigation();
+      return;
+    }
     if (!_isViewportPanStart(event) || _activeMoveLayerId != null) return;
     _viewportPanPointer = event.pointer;
     _viewportPanPosition = event.localPosition;
   }
 
   void _handleViewportPointerMove(PointerMoveEvent event) {
+    if (event.kind == PointerDeviceKind.touch &&
+        _touchPointers.containsKey(event.pointer)) {
+      final previousPosition = _touchPointers[event.pointer]!;
+      _touchPointers[event.pointer] = event.localPosition;
+      if (_touchScaleActive) {
+        _updateTouchNavigation();
+      } else if (_touchPointers.length == 1) {
+        final startPosition = _touchStartPositions[event.pointer]!;
+        if (!_touchPanActive &&
+            (event.localPosition - startPosition).distance <= kTouchSlop) {
+          return;
+        }
+        _touchPanActive = true;
+        _panViewport(event.localPosition - previousPosition);
+      }
+      return;
+    }
     if (_viewportPanPointer != event.pointer || _viewportPanPosition == null) {
       return;
     }
@@ -2201,12 +2686,70 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
   }
 
   void _handleViewportPointerEnd(PointerEvent event) {
+    if (event.kind == PointerDeviceKind.touch) {
+      _touchPointers.remove(event.pointer);
+      _touchStartPositions.remove(event.pointer);
+      if (_touchPointers.length < 2) {
+        _touchScaleActive = false;
+        _touchPanActive = false;
+        if (_touchPointers.entries.firstOrNull case final remaining?) {
+          _touchStartPositions[remaining.key] = remaining.value;
+        }
+      }
+      return;
+    }
     if (_viewportPanPointer != event.pointer) return;
     _viewportPanPointer = null;
     _viewportPanPosition = null;
   }
 
-  Widget _buildWorkspace() {
+  void _startLayerTouchMove(int pointer) {
+    _selectionTransformActive = true;
+    _touchPanActive = false;
+    _touchPointers.remove(pointer);
+    _touchStartPositions.remove(pointer);
+  }
+
+  void _endLayerTouchMove() {
+    _selectionTransformActive = false;
+  }
+
+  void _startTouchNavigation() {
+    final points = _touchPointers.values.take(2).toList();
+    if (points.length < 2) return;
+    if (_activeMoveLayerId != null) _finishMove();
+    final focal = (points[0] + points[1]) / 2;
+    _touchScaleActive = true;
+    _touchPanActive = true;
+    _touchScaleStartZoom = _zoom;
+    _touchScaleStartDistance = math.max(1, (points[0] - points[1]).distance);
+    _touchScaleSceneFocal = _viewportToScene(focal);
+  }
+
+  void _updateTouchNavigation() {
+    final points = _touchPointers.values.take(2).toList();
+    if (points.length < 2) return;
+    final focal = (points[0] + points[1]) / 2;
+    final scale = (points[0] - points[1]).distance / _touchScaleStartDistance;
+    final nextZoom = (_touchScaleStartZoom * scale).clamp(0.25, 8).toDouble();
+    final nextScale = _fitScale * nextZoom;
+    final nextBase =
+        _workspaceSize.center(Offset.zero) -
+        Offset(
+          _documentSize.width * nextScale / 2,
+          _documentSize.height * nextScale / 2,
+        );
+    setState(() {
+      _zoom = nextZoom;
+      _panOffset = focal - _touchScaleSceneFocal * nextScale - nextBase;
+    });
+  }
+
+  Widget _buildWorkspace({
+    bool compact = false,
+    bool useTouchTargets = false,
+    bool phoneHandles = false,
+  }) {
     return Container(
       color: const Color(0xFF121212),
       child: Column(
@@ -2240,7 +2783,11 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
                       key: const Key('canvas-viewport'),
                       transform: _sceneToViewportMatrix,
                       alignment: Alignment.topLeft,
-                      child: _buildFilteredArtboard(_displayScale),
+                      child: _buildFilteredArtboard(
+                        _displayScale,
+                        useTouchTargets: useTouchTargets,
+                        phoneHandles: phoneHandles,
+                      ),
                     ),
                   );
                   return ClipRect(
@@ -2250,32 +2797,48 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
               ),
             ),
           ),
-          _buildZoomBar(),
+          _buildZoomBar(compact: compact),
         ],
       ),
     );
   }
 
-  Widget _buildFilteredArtboard(double displayScale) {
+  Widget _buildFilteredArtboard(
+    double displayScale, {
+    required bool useTouchTargets,
+    required bool phoneHandles,
+  }) {
     final artboard = _Artboard(
       layers: _layers,
       components: _components,
       selectedId: _selectedId,
       displayScale: displayScale,
+      useTouchTargets: useTouchTargets,
+      phoneHandles: phoneHandles,
+      canManipulate: () => !_touchScaleActive && _touchPointers.length <= 1,
       onSelect: (id) => setState(() {
         _selectedId = id;
         _activeGuides = const [];
       }),
-      onMove: (layer, delta) =>
-          setState(() => _moveLayerWithSnapping(layer, delta, displayScale)),
+      onMove: (layer, delta) {
+        if (_touchScaleActive) return;
+        setState(() => _moveLayerWithSnapping(layer, delta, displayScale));
+      },
       onMoveEnd: _finishMove,
       onResize: (layer, handle, delta, proportional) => setState(() {
+        if (_touchScaleActive) return;
         _resizeLayer(layer, handle, delta, proportional: proportional);
       }),
       onResizeEnd: _commitHistory,
-      onRotate: (layer, angle) =>
-          setState(() => _rotateLayerWithDescendants(layer, angle)),
+      onRotate: (layer, angle) {
+        if (_touchScaleActive) return;
+        setState(() => _rotateLayerWithDescendants(layer, angle));
+      },
       onRotateEnd: _commitHistory,
+      onTransformPointerStart: () => _selectionTransformActive = true,
+      onTransformPointerEnd: () => _selectionTransformActive = false,
+      onLayerTouchMoveStart: _startLayerTouchMove,
+      onLayerTouchMoveEnd: _endLayerTouchMove,
       editingTextId: _editingTextLayerId,
       inlineEditor: _inlineEditor,
       textEditFocus: _textEditFocus,
@@ -2422,7 +2985,67 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
     }
   }
 
-  Widget _buildZoomBar() {
+  Widget _buildZoomBar({bool compact = false}) {
+    if (compact) {
+      return Container(
+        key: const Key('compact-zoom-bar'),
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: const BoxDecoration(
+          color: _panel,
+          border: Border(top: BorderSide(color: _line)),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              key: const Key('fit-canvas'),
+              tooltip: 'Scale canvas to fit',
+              visualDensity: VisualDensity.compact,
+              onPressed: _fitCanvas,
+              icon: const Icon(Icons.fit_screen_outlined, size: 17),
+            ),
+            const Spacer(),
+            IconButton(
+              key: const Key('zoom-out'),
+              tooltip: 'Zoom out',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _zoomFromCenter(_zoom - 0.25),
+              icon: const Icon(Icons.remove, size: 16),
+            ),
+            SizedBox(
+              width: 52,
+              child: Text(
+                '${(_zoom * 100).round()}%',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _muted, fontSize: 10.5),
+              ),
+            ),
+            IconButton(
+              key: const Key('zoom-in'),
+              tooltip: 'Zoom in',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _zoomFromCenter(_zoom + 0.25),
+              icon: const Icon(Icons.add, size: 16),
+            ),
+            PopupMenuButton<double>(
+              key: const Key('grid-unit'),
+              tooltip: 'Grid unit',
+              initialValue: _gridUnit,
+              color: _menuSurface,
+              onSelected: (value) => _commitMutation(() => _gridUnit = value),
+              itemBuilder: (context) => [
+                for (final unit in const [4.0, 8.0, 16.0, 32.0])
+                  PopupMenuItem(value: unit, child: Text('${unit.round()} px')),
+              ],
+              child: const Padding(
+                padding: EdgeInsets.all(10),
+                child: Icon(Icons.grid_4x4, size: 16, color: _muted),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       height: 42,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -2516,7 +3139,7 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
     );
   }
 
-  Widget _buildInspector() {
+  Widget _buildInspector({double? width}) {
     final layer = _selected;
     final component = layer?.componentId == null
         ? null
@@ -2526,7 +3149,8 @@ class _GraphicsEditorViewState extends State<GraphicsEditorView> {
         ? null
         : _components[editingComponent!.componentId];
     return Container(
-      width: _canvasEffect == _CanvasEffect.custom ? 390 : 224,
+      key: width == null ? const Key('wide-inspector-panel') : null,
+      width: width ?? (_canvasEffect == _CanvasEffect.custom ? 390 : 224),
       color: _panel,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       child: layer == null
@@ -3217,6 +3841,9 @@ class _Artboard extends StatelessWidget {
     required this.components,
     required this.selectedId,
     required this.displayScale,
+    required this.useTouchTargets,
+    required this.phoneHandles,
+    required this.canManipulate,
     required this.onSelect,
     required this.onMove,
     required this.onMoveEnd,
@@ -3224,6 +3851,10 @@ class _Artboard extends StatelessWidget {
     required this.onResizeEnd,
     required this.onRotate,
     required this.onRotateEnd,
+    required this.onTransformPointerStart,
+    required this.onTransformPointerEnd,
+    required this.onLayerTouchMoveStart,
+    required this.onLayerTouchMoveEnd,
     required this.editingTextId,
     required this.inlineEditor,
     required this.textEditFocus,
@@ -3248,6 +3879,9 @@ class _Artboard extends StatelessWidget {
   final Map<String, GraphicsComponentDefinition> components;
   final String? selectedId;
   final double displayScale;
+  final bool useTouchTargets;
+  final bool phoneHandles;
+  final bool Function() canManipulate;
   final ValueChanged<String?> onSelect;
   final void Function(_DesignLayer, Offset) onMove;
   final VoidCallback onMoveEnd;
@@ -3255,6 +3889,10 @@ class _Artboard extends StatelessWidget {
   final VoidCallback onResizeEnd;
   final void Function(_DesignLayer, double) onRotate;
   final VoidCallback onRotateEnd;
+  final VoidCallback onTransformPointerStart;
+  final VoidCallback onTransformPointerEnd;
+  final ValueChanged<int> onLayerTouchMoveStart;
+  final VoidCallback onLayerTouchMoveEnd;
   final String? editingTextId;
   final TextEditingController inlineEditor;
   final FocusNode textEditFocus;
@@ -3342,6 +3980,8 @@ class _Artboard extends StatelessWidget {
                 key: ValueKey('selection-${selectedLayer.id}'),
                 layer: selectedLayer,
                 displayScale: displayScale,
+                useTouchTargets: useTouchTargets,
+                phoneHandles: phoneHandles,
                 onResize: (handle, delta) => onResize(
                   selectedLayer,
                   handle,
@@ -3356,6 +3996,8 @@ class _Artboard extends StatelessWidget {
                       : angle,
                 ),
                 onRotateEnd: onRotateEnd,
+                onTransformPointerStart: onTransformPointerStart,
+                onTransformPointerEnd: onTransformPointerEnd,
               ),
           ],
         ),
@@ -3378,6 +4020,8 @@ class _Artboard extends StatelessWidget {
       onSecondaryTapDown: (details) => onSecondaryTapDown(layer, details),
       onMove: (delta) => onMove(layer, delta),
       onMoveEnd: onMoveEnd,
+      onLayerTouchMoveStart: onLayerTouchMoveStart,
+      onLayerTouchMoveEnd: onLayerTouchMoveEnd,
       editingText: editingTextId == layer.id,
       inlineEditor: inlineEditor,
       textEditFocus: textEditFocus,
@@ -3386,6 +4030,7 @@ class _Artboard extends StatelessWidget {
       playback: playback,
       shaderRevision: shaderRevision,
       displayScale: displayScale,
+      canManipulate: canManipulate,
       fallbackCustomShader: fallbackCustomShader,
       onShaderStatus: onShaderStatus,
     );
@@ -3422,6 +4067,8 @@ class _CanvasLayer extends StatelessWidget {
     required this.onSecondaryTapDown,
     required this.onMove,
     required this.onMoveEnd,
+    required this.onLayerTouchMoveStart,
+    required this.onLayerTouchMoveEnd,
     required this.editingText,
     required this.inlineEditor,
     required this.textEditFocus,
@@ -3430,6 +4077,7 @@ class _CanvasLayer extends StatelessWidget {
     required this.playback,
     required this.shaderRevision,
     required this.displayScale,
+    required this.canManipulate,
     required this.fallbackCustomShader,
     required this.onShaderStatus,
   });
@@ -3444,6 +4092,8 @@ class _CanvasLayer extends StatelessWidget {
   final GestureTapDownCallback onSecondaryTapDown;
   final ValueChanged<Offset> onMove;
   final VoidCallback onMoveEnd;
+  final ValueChanged<int> onLayerTouchMoveStart;
+  final VoidCallback onLayerTouchMoveEnd;
   final bool editingText;
   final TextEditingController inlineEditor;
   final FocusNode textEditFocus;
@@ -3452,6 +4102,7 @@ class _CanvasLayer extends StatelessWidget {
   final PlaybackController playback;
   final int shaderRevision;
   final double displayScale;
+  final bool Function() canManipulate;
   final String fallbackCustomShader;
   final ValueChanged<GpuShaderCompileStatus> onShaderStatus;
 
@@ -3473,12 +4124,16 @@ class _CanvasLayer extends StatelessWidget {
                   : _LayerGesture(
                       key: ValueKey('layer-gesture-${layer.id}'),
                       doubleSelectable: layer.kind == _LayerKind.text,
+                      selected: selected,
+                      canManipulate: canManipulate,
                       onSelect: onSelect,
                       onDoubleSelect: onDoubleSelect,
                       onSecondaryTapDown: onSecondaryTapDown,
                       onMove: (delta) =>
                           onMove(_rotateOffset(delta, layer.rotation)),
                       onMoveEnd: onMoveEnd,
+                      onTouchMoveStart: onLayerTouchMoveStart,
+                      onTouchMoveEnd: onLayerTouchMoveEnd,
                       child: KeyedSubtree(
                         key: ValueKey('layer-body-${layer.id}'),
                         child: KeyedSubtree(
@@ -3628,7 +4283,7 @@ class _CanvasLayer extends StatelessWidget {
         ? (owner.properties['appliedCustomShader'] as String? ??
               fallbackCustomShader)
         : _effectSource(effect);
-    return GpuShaderSampler(
+    final sampled = GpuShaderSampler(
       key: ValueKey('layer-shader-${layer.id}-${owner.id}'),
       fragmentSource: source,
       paused: playback.paused,
@@ -3645,6 +4300,16 @@ class _CanvasLayer extends StatelessWidget {
           : null,
       child: child,
     );
+    return switch (layer.kind) {
+      _LayerKind.ellipse => ClipOval(child: sampled),
+      _LayerKind.rectangle ||
+      _LayerKind.image when layer.borderRadius > 0 => ClipRRect(
+        borderRadius: BorderRadius.circular(layer.borderRadius),
+        clipBehavior: Clip.antiAlias,
+        child: sampled,
+      ),
+      _ => sampled,
+    };
   }
 
   TextStyle get _textStyle => TextStyle(
@@ -3785,20 +4450,28 @@ class _LayerGesture extends StatefulWidget {
   const _LayerGesture({
     super.key,
     required this.doubleSelectable,
+    required this.selected,
+    required this.canManipulate,
     required this.onSelect,
     required this.onDoubleSelect,
     required this.onSecondaryTapDown,
     required this.onMove,
     required this.onMoveEnd,
+    required this.onTouchMoveStart,
+    required this.onTouchMoveEnd,
     required this.child,
   });
 
   final bool doubleSelectable;
+  final bool selected;
+  final bool Function() canManipulate;
   final VoidCallback onSelect;
   final VoidCallback onDoubleSelect;
   final GestureTapDownCallback onSecondaryTapDown;
   final ValueChanged<Offset> onMove;
   final VoidCallback onMoveEnd;
+  final ValueChanged<int> onTouchMoveStart;
+  final VoidCallback onTouchMoveEnd;
   final Widget child;
 
   @override
@@ -3807,6 +4480,9 @@ class _LayerGesture extends StatefulWidget {
 
 class _LayerGestureState extends State<_LayerGesture> {
   bool _movingLayer = false;
+  bool _touchLayerMoved = false;
+  int? _touchPointer;
+  Offset _lastLongPressOffset = Offset.zero;
 
   bool get _spacePan =>
       HardwareKeyboard.instance.isLogicalKeyPressed(LogicalKeyboardKey.space);
@@ -3815,7 +4491,15 @@ class _LayerGestureState extends State<_LayerGesture> {
   Widget build(BuildContext context) => Listener(
     behavior: HitTestBehavior.opaque,
     onPointerDown: (event) {
-      if (event.buttons & kPrimaryButton == 0 || _spacePan) return;
+      if (event.kind == PointerDeviceKind.touch) {
+        _touchPointer = event.pointer;
+        return;
+      }
+      if (event.buttons & kPrimaryButton == 0 ||
+          _spacePan ||
+          !widget.canManipulate()) {
+        return;
+      }
       widget.onSelect();
     },
     child: GestureDetector(
@@ -3825,7 +4509,11 @@ class _LayerGestureState extends State<_LayerGesture> {
       onDoubleTap: widget.doubleSelectable ? widget.onDoubleSelect : null,
       onSecondaryTapDown: widget.onSecondaryTapDown,
       onPanStart: (details) {
-        _movingLayer = details.kind != PointerDeviceKind.trackpad && !_spacePan;
+        _movingLayer =
+            details.kind != PointerDeviceKind.touch &&
+            details.kind != PointerDeviceKind.trackpad &&
+            !_spacePan &&
+            widget.canManipulate();
         if (_movingLayer) widget.onSelect();
       },
       onPanUpdate: (details) {
@@ -3839,9 +4527,42 @@ class _LayerGestureState extends State<_LayerGesture> {
         if (_movingLayer) widget.onMoveEnd();
         _movingLayer = false;
       },
+      onLongPressStart: widget.selected
+          ? (_) {
+              final pointer = _touchPointer;
+              if (pointer == null || !widget.canManipulate()) return;
+              widget.onTouchMoveStart(pointer);
+              _movingLayer = true;
+              _touchLayerMoved = false;
+              _lastLongPressOffset = Offset.zero;
+            }
+          : null,
+      onLongPressMoveUpdate: widget.selected
+          ? (details) {
+              if (!_movingLayer) return;
+              final offset = details.localOffsetFromOrigin;
+              final delta = offset - _lastLongPressOffset;
+              _lastLongPressOffset = offset;
+              if (delta == Offset.zero) return;
+              _touchLayerMoved = true;
+              widget.onMove(delta);
+            }
+          : null,
+      onLongPressEnd: widget.selected ? (_) => _finishTouchMove() : null,
+      onLongPressCancel: widget.selected ? _finishTouchMove : null,
       child: widget.child,
     ),
   );
+
+  void _finishTouchMove() {
+    if (!_movingLayer || _touchPointer == null) return;
+    if (_touchLayerMoved) widget.onMoveEnd();
+    widget.onTouchMoveEnd();
+    _movingLayer = false;
+    _touchLayerMoved = false;
+    _touchPointer = null;
+    _lastLongPressOffset = Offset.zero;
+  }
 }
 
 class _SelectionOverlay extends StatefulWidget {
@@ -3849,18 +4570,26 @@ class _SelectionOverlay extends StatefulWidget {
     super.key,
     required this.layer,
     required this.displayScale,
+    required this.useTouchTargets,
+    required this.phoneHandles,
     required this.onResize,
     required this.onResizeEnd,
     required this.onRotate,
     required this.onRotateEnd,
+    required this.onTransformPointerStart,
+    required this.onTransformPointerEnd,
   });
 
   final _DesignLayer layer;
   final double displayScale;
+  final bool useTouchTargets;
+  final bool phoneHandles;
   final void Function(_ResizeHandle, Offset) onResize;
   final VoidCallback onResizeEnd;
   final ValueChanged<double> onRotate;
   final VoidCallback onRotateEnd;
+  final VoidCallback onTransformPointerStart;
+  final VoidCallback onTransformPointerEnd;
 
   @override
   State<_SelectionOverlay> createState() => _SelectionOverlayState();
@@ -3876,8 +4605,9 @@ class _SelectionOverlayState extends State<_SelectionOverlay> {
   @override
   Widget build(BuildContext context) {
     final layer = widget.layer;
-    final margin = 34 / widget.displayScale;
-    final controlSize = 20 / widget.displayScale;
+    final margin = (widget.useTouchTargets ? 50 : 34) / widget.displayScale;
+    final controlSize =
+        (widget.useTouchTargets ? 44 : 20) / widget.displayScale;
     final overlaySize = Size(
       layer.size.width + margin * 2,
       layer.size.height + margin * 2,
@@ -3909,7 +4639,12 @@ class _SelectionOverlayState extends State<_SelectionOverlay> {
               ),
             ),
             for (final handle in _ResizeHandle.values)
-              _positionedResizeControl(handle, layer.size),
+              if (!widget.phoneHandles || handle.isCorner)
+                _positionedResizeControl(
+                  handle,
+                  layer.size,
+                  useTouchTargets: widget.useTouchTargets,
+                ),
             Positioned(
               left: margin + layer.size.width / 2 - controlSize / 2,
               top: 0,
@@ -3917,27 +4652,32 @@ class _SelectionOverlayState extends State<_SelectionOverlay> {
               height: margin,
               child: MouseRegion(
                 cursor: SystemMouseCursors.grab,
-                child: GestureDetector(
-                  key: const Key('rotate-handle'),
-                  behavior: HitTestBehavior.opaque,
-                  dragStartBehavior: DragStartBehavior.down,
-                  onPanStart: _startRotation,
-                  onPanUpdate: _updateRotation,
-                  onPanEnd: (_) {
-                    if (_rotatingWithPointer) widget.onRotateEnd();
-                    _rotatingWithPointer = false;
-                  },
-                  onPanCancel: () => _rotatingWithPointer = false,
-                  child: Column(
-                    children: [
-                      _Handle(round: true, displayScale: widget.displayScale),
-                      Expanded(
-                        child: SizedBox(
-                          width: 1 / widget.displayScale,
-                          child: const ColoredBox(color: _accent),
+                child: Listener(
+                  onPointerDown: (_) => widget.onTransformPointerStart(),
+                  onPointerUp: (_) => widget.onTransformPointerEnd(),
+                  onPointerCancel: (_) => widget.onTransformPointerEnd(),
+                  child: GestureDetector(
+                    key: const Key('rotate-handle'),
+                    behavior: HitTestBehavior.opaque,
+                    dragStartBehavior: DragStartBehavior.down,
+                    onPanStart: _startRotation,
+                    onPanUpdate: _updateRotation,
+                    onPanEnd: (_) {
+                      if (_rotatingWithPointer) widget.onRotateEnd();
+                      _rotatingWithPointer = false;
+                    },
+                    onPanCancel: () => _rotatingWithPointer = false,
+                    child: Column(
+                      children: [
+                        _Handle(round: true, displayScale: widget.displayScale),
+                        Expanded(
+                          child: SizedBox(
+                            width: 1 / widget.displayScale,
+                            child: const ColoredBox(color: _accent),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -3948,9 +4688,13 @@ class _SelectionOverlayState extends State<_SelectionOverlay> {
     );
   }
 
-  Widget _positionedResizeControl(_ResizeHandle handle, Size size) {
-    final margin = 34 / widget.displayScale;
-    final controlSize = 20 / widget.displayScale;
+  Widget _positionedResizeControl(
+    _ResizeHandle handle,
+    Size size, {
+    required bool useTouchTargets,
+  }) {
+    final margin = (useTouchTargets ? 50 : 34) / widget.displayScale;
+    final controlSize = (useTouchTargets ? 44 : 20) / widget.displayScale;
     final center = switch (handle) {
       _ResizeHandle.topLeft => Offset(margin, margin),
       _ResizeHandle.top => Offset(margin + size.width / 2, margin),
@@ -3977,23 +4721,28 @@ class _SelectionOverlayState extends State<_SelectionOverlay> {
       height: controlSize,
       child: MouseRegion(
         cursor: _cursorFor(handle),
-        child: GestureDetector(
-          key: ValueKey('resize-handle-${handle.name}'),
-          behavior: HitTestBehavior.opaque,
-          dragStartBehavior: DragStartBehavior.down,
-          onPanStart: (details) =>
-              _resizingWithPointer = details.kind != PointerDeviceKind.trackpad,
-          onPanUpdate: (details) {
-            if (_resizingWithPointer) {
-              widget.onResize(handle, details.delta);
-            }
-          },
-          onPanEnd: (_) {
-            if (_resizingWithPointer) widget.onResizeEnd();
-            _resizingWithPointer = false;
-          },
-          onPanCancel: () => _resizingWithPointer = false,
-          child: Center(child: _Handle(displayScale: widget.displayScale)),
+        child: Listener(
+          onPointerDown: (_) => widget.onTransformPointerStart(),
+          onPointerUp: (_) => widget.onTransformPointerEnd(),
+          onPointerCancel: (_) => widget.onTransformPointerEnd(),
+          child: GestureDetector(
+            key: ValueKey('resize-handle-${handle.name}'),
+            behavior: HitTestBehavior.opaque,
+            dragStartBehavior: DragStartBehavior.down,
+            onPanStart: (details) => _resizingWithPointer =
+                details.kind != PointerDeviceKind.trackpad,
+            onPanUpdate: (details) {
+              if (_resizingWithPointer) {
+                widget.onResize(handle, details.delta);
+              }
+            },
+            onPanEnd: (_) {
+              if (_resizingWithPointer) widget.onResizeEnd();
+              _resizingWithPointer = false;
+            },
+            onPanCancel: () => _resizingWithPointer = false,
+            child: Center(child: _Handle(displayScale: widget.displayScale)),
+          ),
         ),
       ),
     );
@@ -5212,6 +5961,8 @@ String _effectName(_CanvasEffect effect) => switch (effect) {
   _CanvasEffect.paper => 'Paper grain · GLSL',
   _CanvasEffect.halftone => 'Halftone · GLSL',
   _CanvasEffect.ripple => 'Ripple · GLSL',
+  _CanvasEffect.dithering => 'Image dithering · Paper',
+  _CanvasEffect.water => 'Water · Paper',
   _CanvasEffect.custom => 'Custom GLSL…',
 };
 
@@ -5389,6 +6140,45 @@ void main() {
   frag_color = texture(u_child, uv + offset);
 }
 ''',
+  _CanvasEffect.dithering =>
+    '''
+$_shaderHeader
+float bayer4(vec2 p) {
+  vec2 q = mod(floor(p), 4.0);
+  float x = q.x;
+  float y = q.y;
+  return mod(2.0 * mod(x, 2.0) + 3.0 * mod(y, 2.0), 4.0) / 4.0;
+}
+void main() {
+  vec2 pixel = floor(v_uv * u.resolution / 2.0);
+  vec2 uv = (pixel * 2.0 + 1.0) / u.resolution;
+  vec4 c = texture(u_child, vec2(uv.x, 1.0 - uv.y));
+  float lum = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+  float ink = step(bayer4(pixel), lum);
+  vec3 back = vec3(0.0, 0.047, 0.220);
+  vec3 front = mix(vec3(0.580, 1.0, 0.686), vec3(0.918, 1.0, 0.580), step(0.82, lum));
+  frag_color = vec4(mix(back, front, ink) * c.a, c.a);
+}
+''',
+  _CanvasEffect.water =>
+    '''
+$_shaderHeader
+float waveField(vec2 p, float t) {
+  return sin(p.x * 17.0 + t * 1.3) * cos(p.y * 13.0 - t) +
+    0.5 * sin((p.x + p.y) * 29.0 - t * 1.7);
+}
+void main() {
+  vec2 uv = vec2(v_uv.x, 1.0 - v_uv.y);
+  float wave = waveField(uv, u.time);
+  vec2 offset = vec2(wave, -wave) * 0.012;
+  vec4 source = texture(u_child, uv);
+  float alpha = source.a;
+  vec4 c = texture(u_child, clamp(uv + offset, 0.0, 1.0));
+  float caustic = smoothstep(0.55, 1.5, wave) * 0.08;
+  vec3 color = mix(source.rgb, c.rgb + caustic * c.a, c.a);
+  frag_color = vec4(color * alpha, alpha);
+}
+''',
   _CanvasEffect.custom => throw StateError('Custom GLSL has editable source'),
 };
 
@@ -5399,6 +6189,8 @@ List<String> get graphicsEditorShaderSources => [
   _effectSource(_CanvasEffect.paper),
   _effectSource(_CanvasEffect.halftone),
   _effectSource(_CanvasEffect.ripple),
+  _effectSource(_CanvasEffect.dithering),
+  _effectSource(_CanvasEffect.water),
 ];
 
 List<GraphicsComponentDefinition> _defaultComponentDefinitions() => [
