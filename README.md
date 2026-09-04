@@ -44,11 +44,11 @@ presentation to a live result endpoint.
 | 1–4 | Introduction, audience question, desktop screenshot, and the 2020 talk |
 | 5–7 | Flutter desktop timeline and Canonical's Ubuntu work |
 | 8–13 | Window types, windowing API, shared state, browser tabs, panels, and frameless windows |
-| 14–17 | 3D transition, Flutter GPU shaders, and `flutter_scene` |
-| 18–19 | Design-editor demo |
-| 20–25 | Desktop applications, engine experiments, and current platform issues |
-| 26–27 | Flutter desktop as a development tool at Visible |
-| 28 | Sources |
+| 14–15 | Current desktop limitations and issue samples |
+| 16–19 | Use-case detour, 3D transition, Flutter GPU shaders, and `flutter_scene` |
+| 20–21 | Design-editor demo |
+| 22–26 | Desktop applications and engine experiments |
+| 27–28 | Flutter desktop as a development tool at Visible |
 | 29 | Closing and questions |
 
 The optional audience poll is slide 2. Disable it with `showAudiencePoll` in

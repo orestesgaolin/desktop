@@ -1,79 +1,39 @@
-// ignore_for_file: file_names
 import 'package:flutter/material.dart';
 import 'package:flutter_deck/flutter_deck.dart';
 
-import '../../demos/scene_playground.dart';
-import '../../frame.dart';
-import '../../gallery.dart';
+import '../../flyover/flyover_view.dart';
 
+/// The slide that breaks the deck open.
+///
+/// Entering the slide starts the flight immediately. The camera pulls away
+/// from the first panel, crosses the landscape, and lands on the second panel.
+/// The wash returns at the landing, so advancing to the next beat is seamless.
 class Slide17 extends FlutterDeckSlideWidget {
   const Slide17({super.key})
     : super(
         configuration: const FlutterDeckSlideConfiguration(
-          route: '/flutter-scene',
-          title: 'flutter_scene',
+          route: '/flyover',
+          title: '3D flyover',
           showProgress: false,
           transition: FlutterDeckTransition.fade(),
           speakerNotes:
-              'A separate flutter_scene demo: a retained 3D scene with PBR '
-              'materials, lighting, shadows, post-processing, and an '
-              'interactive Flutter widget inside the scene. This is the first '
-              'cut if the talk is running long.',
+              'The flight starts when this slide opens (20 s). It lands on the '
+              'pavilion panel and moves to the gallery on its own — no '
+              'keypress. Press → during the flight to cut it short.',
         ),
       );
 
   @override
-  Widget build(BuildContext context) => FlutterDeckSlide.custom(
-    builder: (context) =>
-        Theme(data: galleryTheme(), child: const _FlutterSceneSlideBody()),
-  );
-}
-
-class _FlutterSceneSlideBody extends StatefulWidget {
-  const _FlutterSceneSlideBody();
-
-  @override
-  State<_FlutterSceneSlideBody> createState() => _FlutterSceneSlideBodyState();
-}
-
-class _FlutterSceneSlideBodyState extends State<_FlutterSceneSlideBody> {
-  final PlaybackController _playback = PlaybackController();
-  final ScenePlaygroundDemo _demo = ScenePlaygroundDemo();
-
-  @override
-  void dispose() {
-    _playback.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Stack(
-    fit: StackFit.expand,
-    children: [
-      _demo.buildView(context, _playback),
-      const Positioned(
-        top: 28,
-        left: 32,
-        child: IgnorePointer(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color(0xCC252A28),
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-            ),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              child: Text(
-                'flutter_scene',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ),
+  Widget build(BuildContext context) {
+    return FlutterDeckSlide.custom(
+      builder: (context) => FlyoverView(
+        playing: true,
+        onLanded: () {
+          final deck = context.flutterDeck;
+          deck.goToSlide(deck.slideNumber + 1);
+        },
       ),
-    ],
-  );
+    );
+  }
 }
+// ignore_for_file: file_names

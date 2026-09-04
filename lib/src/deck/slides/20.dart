@@ -4,8 +4,8 @@ import '../slide_layouts.dart';
 class Slide20 extends TitleOnlySlideLayout {
   Slide20({super.key})
     : super(
-        route: '/where-are-the-apps',
-        title: 'So - where are the desktop apps?',
-        label: '???',
+        route: '/what-if-the-editor-were-flutter',
+        title: 'A UI editor built with Flutter',
+        label: 'GPU + editor',
       );
 }

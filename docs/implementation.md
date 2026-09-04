@@ -24,11 +24,11 @@ all numbered slides.
 | 1–4 | Opening question, optional live poll, desktop screenshot, and the 2020 talk |
 | 5–7 | Desktop timeline, the gap after stable, and Canonical's Ubuntu installer |
 | 8–13 | Window types, the API, shared widget tree, browser, panels, and floating window demos |
-| 14–17 | Transition flyover, Flutter GPU shaders, and flutter_scene |
-| 18–19 | UI editor introduction and demo |
-| 20–25 | Desktop apps, engine experiments, and current platform issues |
-| 26–27 | Visible's desktop development workflows |
-| **28** | **Sources** — the public reference page |
+| 14–15 | Current desktop limitations and issue samples |
+| 16–19 | Use-case detour, transition flyover, Flutter GPU shaders, and flutter_scene |
+| 20–21 | UI editor introduction and demo |
+| 22–26 | Desktop apps and engine experiments |
+| 27–28 | Visible's desktop development workflows |
 | **29** | **Q&A close** — the callback to the opening desktop screenshot |
 
 ## Live poll
@@ -97,15 +97,14 @@ Keep secrets and Google credentials server-side; do not pass them through
 
 ## 3D flyover
 
-Slide 15 looks like every other slide in the deck. It is not: the paper is
-a wash over a live `flutter_scene` view parked head-on against a monolith
-standing in a forest clearing, framed so the panel covers the viewport
-exactly. Pressing → lifts the wash and flies the camera out of the
-clearing for twenty seconds, banking over the treeline, low across a lake,
-up onto a plateau and square against a second panel in front of a
+Slide 17 starts the live `flutter_scene` flight as soon as it opens. The camera
+begins head-on against a monolith standing in a forest clearing, framed so the
+panel covers the viewport exactly. The paper wash lifts and the camera flies
+out of the clearing for twenty seconds, banking over the treeline, low across a
+lake, up onto a plateau and square against a second panel in front of a
 glass-and-concrete pavilion. The wash returns as it settles, and the deck
-advances itself to the next story beat with no second keypress. Pressing →
-during the flight cuts it short and advances directly.
+advances itself to the next story beat. Pressing → during the flight cuts it
+short and advances directly.
 
 The landscape is generated, not authored: a `FastNoiseLite` heightfield
 with lakes carved into it, ~2 600 instanced spruces and birches in two
@@ -363,7 +362,7 @@ fvm use master          # or make sure `flutter` is the master channel
 fvm flutter run -d macos
 ```
 
-The app opens on slide 1 of the deck. The gallery described below is slide 16;
+The app opens on slide 1 of the deck. The gallery described below is slide 18;
 everything in it works exactly as it did standalone.
 
 ## Rendering and project structure
@@ -386,9 +385,9 @@ everything in it works exactly as it did standalone.
   (one file per slide), and `page.dart` (the
   shared slide layout and type ramp).
 - `lib/src/flyover/` — `world.dart` (the procedural landscape, built once
-  at launch so slide 15 has nothing left to do), `camera_path.dart` (the
+  at launch so slide 17 has nothing left to do), `camera_path.dart` (the
   flight), `flyover_view.dart` (the widget, the wash, and the step wiring).
-- `lib/src/gallery.dart` — the demo gallery shell, hosted by slide 16.
+- `lib/src/gallery.dart` — the demo gallery shell, hosted by slide 18.
 - `lib/src/demos/` — one class per demo. 3D demos build their own
   pipelines, vertex/index buffers, and depth/MSAA attachments; the
   fullscreen shader-art demos share a 3-vertex fullscreen-triangle

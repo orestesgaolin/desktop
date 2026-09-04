@@ -3,17 +3,29 @@ import 'package:flutter/widgets.dart';
 
 import '../slide_layouts.dart';
 
-class Slide23 extends ContentImageSlideLayout {
+class Slide23 extends ImmersiveMediaSlideLayout {
   Slide23({super.key})
     : super(
-        route: '/buzz',
-        title: 'Buzz uses Flutter on mobile and Tauri on desktop',
+        route: '/desktop-apps-grid',
+        title: 'Popular Flutter desktop apps are mostly utilities',
         label: 'Where are the apps?',
-        navigationTitle: 'Buzz',
-        body: 'The desktop version is built with Tauri, which uses web technologies for the UI and Rust for the backend.',
-        imageBuilder: (context) => Image(
-          image: AssetImage('assets/images/buzz.png'),
-          fit: BoxFit.contain,
+        aspectRatio: 16 / 7,
+        mediaBuilder: (context) => Row(
+          children: [
+            Expanded(
+              child: Image.asset(
+                'assets/images/localsend.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Image.asset(
+                'assets/images/rust-desk.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ],
         ),
       );
 }

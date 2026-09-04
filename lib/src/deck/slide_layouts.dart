@@ -435,6 +435,7 @@ class ClosingSlideLayout extends FlutterDeckSlideWidget {
     this.subtitle,
     this.link,
     this.additionalLinks = const [],
+    this.footerBuilder,
   }) : super(
          configuration: FlutterDeckSlideConfiguration(
            route: route,
@@ -446,44 +447,53 @@ class ClosingSlideLayout extends FlutterDeckSlideWidget {
   final String? subtitle;
   final String? link;
   final List<String> additionalLinks;
+  final WidgetBuilder? footerBuilder;
 
   @override
   Widget build(BuildContext context) => FlutterDeckSlide.custom(
     builder: (context) {
       final s = SlidePage.scaleOf(context);
+      final content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (title.trim().isNotEmpty) Text(title, style: PageText.display(s)),
+          if (title.trim().isNotEmpty) ...[
+            SizedBox(height: 28 * s),
+            Container(width: 90 * s, height: 1.4, color: spruce),
+          ],
+          if (subtitle?.trim().isNotEmpty ?? false) ...[
+            SizedBox(height: 26 * s),
+            Text(subtitle!, style: PageText.lead(s)),
+          ],
+          if (link?.trim().isNotEmpty ?? false) ...[
+            SizedBox(height: 18 * s),
+            Text(
+              link!,
+              style: PageText.title(s).copyWith(color: clay, fontSize: 34 * s),
+            ),
+          ],
+          for (final additionalLink in additionalLinks)
+            if (additionalLink.trim().isNotEmpty) ...[
+              SizedBox(height: 12 * s),
+              Text(
+                additionalLink,
+                style: PageText.lead(s)
+                    .copyWith(color: clay, fontWeight: FontWeight.w600),
+              ),
+            ],
+        ],
+      );
       return SlidePage(
         showNumber: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (title.trim().isNotEmpty)
-              Text(title, style: PageText.display(s)),
-            if (title.trim().isNotEmpty) ...[
-              SizedBox(height: 28 * s),
-              Container(width: 90 * s, height: 1.4, color: spruce),
+            Expanded(child: content),
+            if (footerBuilder != null) ...[
+              SizedBox(height: 24 * s),
+              footerBuilder!(context),
             ],
-            if (subtitle?.trim().isNotEmpty ?? false) ...[
-              SizedBox(height: 26 * s),
-              Text(subtitle!, style: PageText.lead(s)),
-            ],
-            if (link?.trim().isNotEmpty ?? false) ...[
-              SizedBox(height: 18 * s),
-              Text(
-                link!,
-                style: PageText.title(s)
-                    .copyWith(color: clay, fontSize: 34 * s),
-              ),
-            ],
-            for (final additionalLink in additionalLinks)
-              if (additionalLink.trim().isNotEmpty) ...[
-                SizedBox(height: 12 * s),
-                Text(
-                  additionalLink,
-                  style: PageText.lead(s)
-                      .copyWith(color: clay, fontWeight: FontWeight.w600),
-                ),
-              ],
           ],
         ),
       );
