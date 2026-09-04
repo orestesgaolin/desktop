@@ -3,5 +3,9 @@ import '../slide_layouts.dart';
 
 class Slide20 extends TitleOnlySlideLayout {
   Slide20({super.key})
-    : super(route: '/days-not-months', title: 'The editor took a day to build');
+    : super(
+        route: '/where-are-the-apps',
+        title: 'So - where are the desktop apps?',
+        label: '???',
+      );
 }

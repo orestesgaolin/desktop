@@ -6,11 +6,13 @@ import '../slide_layouts.dart';
 class Slide22 extends ImmersiveMediaSlideLayout {
   Slide22({super.key})
     : super(
-        route: '/desktop-apps-grid',
-        title: 'Popular Flutter desktop apps are mostly utilities',
+        route: '/opencode',
+        title: 'OpenCode moved from Tauri to Electron',
         label: 'Where are the apps?',
-        aspectRatio: 2024 / 1424,
-        mediaBuilder: (context) =>
-            Image.asset('assets/images/localsend.png', fit: BoxFit.contain),
+        aspectRatio: 1850 / 1204,
+        mediaBuilder: (context) => Image.asset(
+          'assets/images/tauri-open-code.png',
+          fit: BoxFit.contain,
+        ),
       );
 }

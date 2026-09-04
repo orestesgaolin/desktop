@@ -11,7 +11,10 @@ class Slide7 extends FlutterDeckSlideWidget {
         configuration: const FlutterDeckSlideConfiguration(
           route: '/canonical-ubuntu-installer',
           title: 'Canonical was already shipping\ndesktop apps in Flutter',
-          preloadImages: {'assets/images/ubuntu-flutter-installer.jpg'},
+          preloadImages: {
+            'assets/images/ubuntu-flutter-installer.jpg',
+            'assets/images/lukas-ubuntu.png',
+          },
           speakerNotes:
               'Canonical used Flutter for Ubuntu desktop software before the '
               'new windowing work, including the Ubuntu installer. This is '
@@ -20,7 +23,8 @@ class Slide7 extends FlutterDeckSlideWidget {
               '[Sources]\n'
               '- https://ubuntu.com/blog/flutter-and-ubuntu-so-far\n'
               '- https://ubuntu.com/blog/how-we-designed-the-new-ubuntu-desktop-installer\n'
-              '- https://flutter.dev/blog/desktop-windowing-apis',
+              '- https://flutter.dev/blog/desktop-windowing-apis\n'
+              '- User-provided asset: assets/images/lukas-ubuntu.png',
         ),
       );
 
@@ -39,24 +43,47 @@ class Slide7 extends FlutterDeckSlideWidget {
             ),
             SizedBox(height: 28 * s),
             Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18 * s),
-                child: ColoredBox(
-                  color: panel,
-                  child: Image.asset(
-                    'assets/images/ubuntu-flutter-installer.jpg',
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.contain,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18 * s),
+                      child: ColoredBox(
+                        color: panel,
+                        child: Image.asset(
+                          'assets/images/ubuntu-flutter-installer.jpg',
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  SizedBox(width: 18 * s),
+                  Expanded(
+                    flex: 2,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18 * s),
+                      child: ColoredBox(
+                        color: panel,
+                        child: Image.asset(
+                          'assets/images/lukas-ubuntu.png',
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             SizedBox(height: 10 * s),
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                'Source: ubuntu.com/blog/flutter-and-ubuntu-so-far',
+                'Sources: ubuntu.com/blog/flutter-and-ubuntu-so-far; Lukas Klingsbo',
                 style: PageText.footer(s),
               ),
             ),

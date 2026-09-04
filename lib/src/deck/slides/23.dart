@@ -3,15 +3,16 @@ import 'package:flutter/widgets.dart';
 
 import '../slide_layouts.dart';
 
-class Slide23 extends ImmersiveMediaSlideLayout {
+class Slide23 extends ContentImageSlideLayout {
   Slide23({super.key})
     : super(
-        route: '/opencode',
-        title: 'OpenCode moved from Tauri to Electron',
+        route: '/buzz',
+        title: 'Buzz uses Flutter on mobile and Tauri on desktop',
         label: 'Where are the apps?',
-        aspectRatio: 1850 / 1204,
-        mediaBuilder: (context) => Image.asset(
-          'assets/images/tauri-open-code.png',
+        navigationTitle: 'Buzz',
+        body: 'The desktop version is built with Tauri, which uses web technologies for the UI and Rust for the backend.',
+        imageBuilder: (context) => Image(
+          image: AssetImage('assets/images/buzz.png'),
           fit: BoxFit.contain,
         ),
       );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'demos/demo.dart';
 import 'demos/registry.dart';
@@ -64,8 +65,10 @@ class _BootstrapScreenState extends State<BootstrapScreen> {
                   children: [
                     const Icon(Icons.gpp_bad_outlined, size: 44),
                     const SizedBox(height: 16),
-                    Text('Shader compiler not found',
-                        style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      'Shader compiler not found',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 12),
                     SelectableText(
                       '${snapshot.error}\n\n'
@@ -103,11 +106,23 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   final List<GpuDemo> _demos = buildDemos();
   final PlaybackController _playback = PlaybackController();
+  final FocusNode _navigationFocus = FocusNode(
+    debugLabel: 'GPU gallery navigation',
+  );
   int _selected = 0;
   bool _showEditor = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _navigationFocus.requestFocus();
+    });
+  }
+
+  @override
   void dispose() {
+    _navigationFocus.dispose();
     _playback.dispose();
     super.dispose();
   }
@@ -119,74 +134,98 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+  KeyEventResult _handleDemoNavigation(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    final int delta;
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      delta = -1;
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      delta = 1;
+    } else {
+      return KeyEventResult.ignored;
+    }
+
+    final next = (_selected + delta).clamp(0, _demos.length - 1);
+    if (next != _selected) _select(next);
+    return KeyEventResult.handled;
+  }
+
   @override
   Widget build(BuildContext context) {
     final demo = _demos[_selected];
     final Widget? sidePanel = demo is WidgetStageDemo
         ? _StagePanel(key: ObjectKey(demo), demo: demo)
         : _showEditor && demo.shaders.isNotEmpty
-            ? ShaderEditorPanel(key: ObjectKey(demo), demo: demo)
-            : null;
-    return Scaffold(
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _Sidebar(
-            demos: _demos,
-            selected: _selected,
-            onSelect: _select,
-          ),
-          Expanded(
-            child: Column(
-              children: [
-                _TopBar(
-                  demo: demo,
-                  playback: _playback,
-                  showEditor: _showEditor,
-                  onToggleEditor: demo is WidgetStageDemo || demo.shaders.isEmpty
-                      ? null
-                      : () => setState(() => _showEditor = !_showEditor),
-                ),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(
-                              4, 0, sidePanel != null ? 12 : 14, 14),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                const ColoredBox(color: Color(0xFFE9E6E0)),
-                                if (demo is WidgetHostedDemo)
-                                  demo.buildView(context, _playback)
-                                else
-                                  GpuSurfaceView(
-                                    demo: demo,
-                                    playback: _playback,
-                                  ),
-                                if (demo.hint.isNotEmpty)
-                                  Positioned(
-                                    left: 14,
-                                    bottom: 12,
-                                    child: _HintChip(text: demo.hint),
-                                  ),
-                              ],
+        ? ShaderEditorPanel(key: ObjectKey(demo), demo: demo)
+        : null;
+    return Focus(
+      focusNode: _navigationFocus,
+      onKeyEvent: _handleDemoNavigation,
+      child: Scaffold(
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Sidebar(demos: _demos, selected: _selected, onSelect: _select),
+            Expanded(
+              child: Column(
+                children: [
+                  _TopBar(
+                    demo: demo,
+                    playback: _playback,
+                    showEditor: _showEditor,
+                    onToggleEditor:
+                        demo is WidgetStageDemo || demo.shaders.isEmpty
+                        ? null
+                        : () => setState(() => _showEditor = !_showEditor),
+                  ),
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              4,
+                              0,
+                              sidePanel != null ? 12 : 14,
+                              14,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  const ColoredBox(color: Color(0xFFE9E6E0)),
+                                  if (demo is WidgetHostedDemo)
+                                    demo.buildView(context, _playback)
+                                  else
+                                    GpuSurfaceView(
+                                      demo: demo,
+                                      playback: _playback,
+                                    ),
+                                  if (demo.hint.isNotEmpty)
+                                    Positioned(
+                                      left: 14,
+                                      bottom: 12,
+                                      child: _HintChip(text: demo.hint),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      ?sidePanel,
-                    ],
+                        ?sidePanel,
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -278,18 +317,27 @@ class _Sidebar extends StatelessWidget {
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.memory,
-                      size: 20, color: Colors.white),
+                  child: const Icon(
+                    Icons.memory,
+                    size: 20,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('GPU Playground',
-                        style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w700)),
-                    Text('Flutter GPU · Impeller',
-                        style: TextStyle(fontSize: 11, color: _textDim)),
+                    Text(
+                      'GPU Playground',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      'Flutter GPU · Impeller',
+                      style: TextStyle(fontSize: 11, color: _textDim),
+                    ),
                   ],
                 ),
               ],
@@ -353,24 +401,27 @@ class _DemoTile extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(demo.icon,
-                    size: 18, color: selected ? _accent : _textDim),
+                Icon(demo.icon, size: 18, color: selected ? _accent : _textDim),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(demo.name,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight:
-                                selected ? FontWeight.w600 : FontWeight.w500,
-                          )),
-                      Text(demo.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 10.5, color: _textDim)),
+                      Text(
+                        demo.name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        demo.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 10.5, color: _textDim),
+                      ),
                     ],
                   ),
                 ),
@@ -409,11 +460,17 @@ class _TopBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(demo.name,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w700)),
-                  Text(demo.subtitle,
-                      style: const TextStyle(fontSize: 11, color: _textDim)),
+                  Text(
+                    demo.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    demo.subtitle,
+                    style: const TextStyle(fontSize: 11, color: _textDim),
+                  ),
                 ],
               ),
             ),
@@ -437,8 +494,9 @@ class _TopBar extends StatelessWidget {
                     showSelectedIcon: false,
                     style: const ButtonStyle(
                       visualDensity: VisualDensity.compact,
-                      textStyle:
-                          WidgetStatePropertyAll(TextStyle(fontSize: 10.5)),
+                      textStyle: WidgetStatePropertyAll(
+                        TextStyle(fontSize: 10.5),
+                      ),
                     ),
                     segments: const [
                       ButtonSegment(value: 0.5, label: Text('50%')),
@@ -505,8 +563,10 @@ class _HintChip extends StatelessWidget {
         color: _ink.withValues(alpha: 0.62),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(text,
-          style: const TextStyle(fontSize: 11, color: Color(0xFFF2F0EA))),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 11, color: Color(0xFFF2F0EA)),
+      ),
     );
   }
 }

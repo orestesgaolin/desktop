@@ -29,8 +29,6 @@ import 'slides/26.dart';
 import 'slides/27.dart';
 import 'slides/28.dart';
 import 'slides/29.dart';
-import 'slides/30.dart';
-import 'slides/31.dart';
 
 /// Keep the live poll available without making it part of every rehearsal.
 const showAudiencePoll = true;
@@ -66,6 +64,4 @@ List<FlutterDeckSlideWidget> buildSlides() => [
   Slide27(),
   Slide28(),
   Slide29(),
-  Slide30(),
-  Slide31(),
 ];

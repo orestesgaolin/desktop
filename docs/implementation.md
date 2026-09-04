@@ -12,7 +12,7 @@ The hand-written GPU demos render their viewports with render passes and
 
 ## Presentation architecture
 
-`lib/src/deck/` contains a 31-slide `flutter_deck` presentation. Arrow keys
+`lib/src/deck/` contains a 29-slide `flutter_deck` presentation. Arrow keys
 move through the deck and `⌘.` opens the slide drawer.
 
 Presentation metadata is configured once in `lib/src/deck/config.dart`.
@@ -25,11 +25,11 @@ all numbered slides.
 | 5–7 | Desktop timeline, the gap after stable, and Canonical's Ubuntu installer |
 | 8–13 | Window types, the API, shared widget tree, browser, panels, and floating window demos |
 | 14–17 | Transition flyover, Flutter GPU shaders, and flutter_scene |
-| 18–20 | UI editor introduction, demo, and build-time point |
-| 21–27 | Desktop apps, Flutter Zero, Flocker, and engine experimentation |
-| 28–29 | Visible's desktop development workflows |
-| **30** | **Sources** — the public reference page |
-| **31** | **Q&A close** — the callback to the opening desktop screenshot |
+| 18–19 | UI editor introduction and demo |
+| 20–25 | Desktop apps, engine experiments, and current platform issues |
+| 26–27 | Visible's desktop development workflows |
+| **28** | **Sources** — the public reference page |
+| **29** | **Q&A close** — the callback to the opening desktop screenshot |
 
 ## Live poll
 

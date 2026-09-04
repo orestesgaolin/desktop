@@ -82,83 +82,88 @@ DialogWindowController? dialog;''',
         final s = SlidePage.scaleOf(context);
         final index = (step - 1).clamp(0, _steps.length - 1);
         final current = _steps[index];
-        return SlidePage(
-          label: 'Windowing · API',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(current.title, style: PageText.title(s)),
-              SizedBox(height: 22 * s),
-              Row(
-                children: [
-                  Text(
-                    '${index + 1}'.padLeft(2, '0'),
-                    style: PageText.label(s).copyWith(color: clay),
-                  ),
-                  SizedBox(width: 18 * s),
-                  Expanded(
-                    child: Text(
-                      current.title,
-                      style: PageText.lead(s)
-                          .copyWith(color: ink, fontWeight: FontWeight.w600),
+        return XpSlideFrame(
+          title: 'Flutter Desktop — Windowing API',
+          child: SlidePage(
+            label: 'Windowing · API',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(current.title, style: PageText.title(s)),
+                SizedBox(height: 22 * s),
+                Row(
+                  children: [
+                    Text(
+                      '${index + 1}'.padLeft(2, '0'),
+                      style: PageText.label(s).copyWith(color: clay),
                     ),
-                  ),
-                  Text(
-                    '${index + 1} / ${_steps.length}',
-                    style: PageText.footer(s),
-                  ),
-                ],
-              ),
-              SizedBox(height: 22 * s),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 320),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(.025, 0),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
+                    SizedBox(width: 18 * s),
+                    Expanded(
+                      child: Text(
+                        current.title,
+                        style: PageText.lead(s)
+                            .copyWith(color: ink, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                  ),
-                  child: DecoratedBox(
-                    key: ValueKey(index),
-                    decoration: BoxDecoration(
-                      color: ink,
-                      borderRadius: BorderRadius.circular(18 * s),
-                      border: Border.all(color: spruce.withValues(alpha: .28)),
+                    Text(
+                      '${index + 1} / ${_steps.length}',
+                      style: PageText.footer(s),
                     ),
-                    child: Padding(
-                      padding: EdgeInsets.all(34 * s),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: DartCodeSnippet(
-                          code: current.code,
-                          style: TextStyle(
-                            color: paper,
-                            fontFamily: 'Menlo',
-                            fontSize: 22 * s,
-                            height: 1.42,
+                  ],
+                ),
+                SizedBox(height: 22 * s),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 320),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(.025, 0),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: DecoratedBox(
+                      key: ValueKey(index),
+                      decoration: BoxDecoration(
+                        color: ink,
+                        borderRadius: BorderRadius.circular(18 * s),
+                        border: Border.all(
+                          color: spruce.withValues(alpha: .28),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(34 * s),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: DartCodeSnippet(
+                            code: current.code,
+                            style: TextStyle(
+                              color: paper,
+                              fontFamily: 'Menlo',
+                              fontSize: 22 * s,
+                              height: 1.42,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              SizedBox(height: 10 * s),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  'Source: flutter.dev/blog/desktop-windowing-apis',
-                  style: PageText.footer(s),
+                SizedBox(height: 10 * s),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'Source: flutter.dev/blog/desktop-windowing-apis',
+                    style: PageText.footer(s),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

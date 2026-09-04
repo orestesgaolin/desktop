@@ -43,4 +43,5 @@ flutter:
     - assets/images/
     - assets/flocker-video.mp4
     - assets/flutter_visible_macos.mp4
+    - assets/vix-slack.mp4
     - flutter_scene_generated/

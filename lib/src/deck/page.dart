@@ -4,6 +4,190 @@ import 'package:flutter_deck/flutter_deck.dart';
 import '../palette.dart';
 import 'config.dart';
 
+/// Windows XP-inspired outer chrome for selected slides.
+///
+/// The content keeps the deck's existing type scale and spacing. This widget
+/// only supplies the recognizable application frame, so media and code remain
+/// readable at presentation distance.
+class XpSlideFrame extends StatelessWidget {
+  const XpSlideFrame({super.key, required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = SlidePage.scaleOf(context);
+
+    return Padding(
+      padding: EdgeInsets.all(18 * s),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFECE9D8),
+          border: Border.all(color: const Color(0xFF0054E3), width: 3 * s),
+          borderRadius: BorderRadius.circular(8 * s),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF003C74).withValues(alpha: .28),
+              blurRadius: 18 * s,
+              offset: Offset(5 * s, 8 * s),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(5 * s),
+          child: Column(
+            children: [
+              _XpTitleBar(title: title, scale: s),
+              Expanded(
+                child: ColoredBox(color: const Color(0xFFF8F8F4), child: child),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _XpTitleBar extends StatelessWidget {
+  const _XpTitleBar({required this.title, required this.scale});
+
+  final String title;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 38 * scale,
+    padding: EdgeInsets.fromLTRB(10 * scale, 0, 5 * scale, 0),
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0xFF5AA2F5),
+          Color(0xFF245EDB),
+          Color(0xFF0C51CA),
+          Color(0xFF003C74),
+        ],
+        stops: [0, .2, .78, 1],
+      ),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Tahoma',
+              fontSize: 14 * scale,
+              fontWeight: FontWeight.w700,
+              shadows: const [
+                Shadow(color: Color(0xFF0F368B), offset: Offset(1, 1)),
+              ],
+            ),
+          ),
+        ),
+        ExcludeSemantics(
+          child: Row(
+            children: [
+              _XpWindowButton(action: _XpWindowAction.minimize, scale: scale),
+              SizedBox(width: 2 * scale),
+              _XpWindowButton(action: _XpWindowAction.maximize, scale: scale),
+              SizedBox(width: 2 * scale),
+              _XpWindowButton(action: _XpWindowAction.close, scale: scale),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _XpWindowButton extends StatelessWidget {
+  const _XpWindowButton({required this.action, required this.scale});
+
+  final _XpWindowAction action;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 29 * scale,
+    height: 28 * scale,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      gradient: RadialGradient(
+        center: const Alignment(-.55, -.65),
+        radius: 1.15,
+        colors: action == _XpWindowAction.close
+            ? const [Color(0xFFF6A184), Color(0xFFD65335), Color(0xFFB73822)]
+            : const [Color(0xFF8EB7EF), Color(0xFF477CC9), Color(0xFF28549D)],
+        stops: const [0, .58, 1],
+      ),
+      border: Border.all(color: Colors.white, width: 2 * scale),
+      borderRadius: BorderRadius.circular(5.5 * scale),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF143E83),
+          offset: Offset(1.5 * scale, 1.5 * scale),
+        ),
+      ],
+    ),
+    child: _XpWindowGlyph(action: action, scale: scale),
+  );
+}
+
+enum _XpWindowAction { minimize, maximize, close }
+
+class _XpWindowGlyph extends StatelessWidget {
+  const _XpWindowGlyph({required this.action, required this.scale});
+
+  final _XpWindowAction action;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) => switch (action) {
+    _XpWindowAction.minimize => Align(
+      alignment: const Alignment(0, .58),
+      child: Container(
+        width: 12 * scale,
+        height: 3 * scale,
+        color: Colors.white,
+      ),
+    ),
+    _XpWindowAction.maximize => Container(
+      width: 13 * scale,
+      height: 12 * scale,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white, width: 2.2 * scale),
+      ),
+    ),
+    _XpWindowAction.close => SizedBox.square(
+      dimension: 19 * scale,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          for (final angle in [-.785398, .785398])
+            Transform.rotate(
+              angle: angle,
+              child: Container(
+                width: 21 * scale,
+                height: 3.2 * scale,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(.8 * scale),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  };
+}
+
 /// Shared chrome for every slide in the deck.
 ///
 /// flutter_deck's own templates are deliberately not used: the deck has one
